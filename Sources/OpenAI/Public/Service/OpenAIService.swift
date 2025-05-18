@@ -126,6 +126,16 @@ public protocol OpenAIService {
     parameters: AudioSpeechParameters)
     async throws -> AudioSpeechObject
 
+  /// Creates streaming speech from text input, returning audio chunks as they're generated
+  /// - Parameter parameters: The audio speech parameters with streaming enabled
+  /// - Returns: An async throwing stream of audio chunks
+  /// - Throws: An error if the streaming process fails
+  ///
+  /// For more information, refer to [OpenAI's Audio Speech API documentation](https://platform.openai.com/docs/api-reference/audio/createSpeech).
+  func createStreamingSpeech(
+    parameters: AudioSpeechParameters)
+    async throws -> AsyncThrowingStream<AudioSpeechChunkObject, Error>
+
   // MARK: Chat
 
   /// - Parameter parameters: Parameters for the chat completion request.
@@ -1496,3 +1506,114 @@ extension OpenAIService {
     }
   }
 }
+
+extension OpenAIService {
+  /// Asynchronously fetches a stream of audio chunks from OpenAI's TTS API
+  ///
+  /// - Parameters:
+  ///   - debugEnabled: If true the service will print events on DEBUG builds
+  ///   - request: The URLRequest describing the API request
+  /// - Returns: An asynchronous throwing stream of audio chunks
+  public func fetchAudioStream(
+    debugEnabled: Bool,
+    with request: URLRequest)
+    async throws -> AsyncThrowingStream<AudioSpeechChunkObject, Error>
+  {
+    if debugEnabled {
+      printCurlCommand(request)
+    }
+
+    let (data, response) = try await session.bytes(
+      for: request,
+      delegate: session.delegate as? URLSessionTaskDelegate
+    )
+    
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw APIError.requestFailed(description: "invalid response unable to get a valid HTTPURLResponse")
+    }
+    
+    if debugEnabled {
+      printHTTPURLResponse(httpResponse)
+    }
+    
+    guard httpResponse.statusCode == 200 else {
+      var errorMessage = "status code \(httpResponse.statusCode)"
+      do {
+        let errorData = try await data.reduce(into: Data()) { accumulator, byte in
+          accumulator.append(byte)
+        }
+        let error = try decoder.decode(OpenAIErrorResponse.self, from: errorData)
+        errorMessage += " \(error.error.message ?? "NO ERROR MESSAGE PROVIDED")"
+      } catch {
+        errorMessage = "status code \(httpResponse.statusCode)"
+      }
+      throw APIError.responseUnsuccessful(description: errorMessage,
+                                          statusCode: httpResponse.statusCode)
+    }
+    
+    return AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          var chunkIndex = 0
+          var currentChunk = Data()
+          let chunkSize = 4096 // Reasonable chunk size for audio streaming
+          
+          // Process the byte stream
+          for try await byte in data {
+            currentChunk.append(byte)
+            
+            // When we have enough data, yield a chunk
+            if currentChunk.count >= chunkSize {
+              let audioChunk = AudioSpeechChunkObject(
+                chunk: currentChunk,
+                isLastChunk: false,
+                chunkIndex: chunkIndex
+              )
+              continuation.yield(audioChunk)
+              
+              chunkIndex += 1
+              currentChunk = Data()
+              
+              #if DEBUG
+              if debugEnabled {
+                print("DEBUG: Yielded audio chunk \(chunkIndex) with \(chunkSize) bytes")
+              }
+              #endif
+            }
+          }
+          
+          // Handle any remaining data
+          if !currentChunk.isEmpty {
+            let audioChunk = AudioSpeechChunkObject(
+              chunk: currentChunk,
+              isLastChunk: false,
+              chunkIndex: chunkIndex
+            )
+            continuation.yield(audioChunk)
+            chunkIndex += 1
+          }
+          
+          // Signal completion with a final chunk
+          let finalChunk = AudioSpeechChunkObject(
+            chunk: Data(),
+            isLastChunk: true,
+            chunkIndex: chunkIndex
+          )
+          continuation.yield(finalChunk)
+          continuation.finish()
+          
+        } catch {
+          #if DEBUG
+          if debugEnabled {
+            print("AUDIO STREAM ERROR: \(error.localizedDescription)")
+          }
+          #endif
+          continuation.finish(throwing: error)
+        }
+      }
+      
+      continuation.onTermination = { @Sendable _ in
+        task.cancel()
+      }
+    }
+  }

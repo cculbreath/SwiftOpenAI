@@ -15,13 +15,15 @@ public struct AudioSpeechParameters: Encodable {
     input: String,
     voice: Voice,
     responseFormat: ResponseFormat? = nil,
-    speed: Double? = nil)
+    speed: Double? = nil,
+    stream: Bool? = nil)
   {
     self.model = model.rawValue
     self.input = input
     self.voice = voice.rawValue
     self.responseFormat = responseFormat?.rawValue
     self.speed = speed
+    self.stream = stream
   }
 
   public enum TTSModel {
@@ -66,6 +68,7 @@ public struct AudioSpeechParameters: Encodable {
     case voice
     case responseFormat = "response_format"
     case speed
+    case stream
   }
 
   /// One of the available [TTS models](https://platform.openai.com/docs/models/tts): tts-1 or tts-1-hd
@@ -78,5 +81,7 @@ public struct AudioSpeechParameters: Encodable {
   let responseFormat: String?
   /// Defaults to 1,  The speed of the generated audio. Select a value from 0.25 to 4.0. 1.0 is the default.
   let speed: Double?
+  /// Whether to stream the audio response. When true, the response will be streamed as chunks instead of returning all at once.
+  var stream: Bool?
 
 }

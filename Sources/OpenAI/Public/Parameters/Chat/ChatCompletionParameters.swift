@@ -39,7 +39,8 @@ public struct ChatCompletionParameters: Encodable {
     temperature: Double? = nil,
     topProbability: Double? = nil,
     user: String? = nil,
-    streamOptions: StreamOptions? = nil)
+    streamOptions: StreamOptions? = nil,
+    reasoning: [String: Any]? = nil)
   {
     self.messages = messages
     self.model = model.value
@@ -69,6 +70,7 @@ public struct ChatCompletionParameters: Encodable {
     topP = topProbability
     self.user = user
     self.streamOptions = streamOptions
+    self.reasoning = reasoning
   }
 
   public struct Message: Encodable {
@@ -488,6 +490,9 @@ public struct ChatCompletionParameters: Encodable {
   /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
   /// [Learn more](https://platform.openai.com/docs/guides/safety-best-practices/end-user-ids).
   public var user: String?
+  /// OpenRouter-specific reasoning configuration (different from OpenAI's reasoning_effort)
+  /// This is used for models that support reasoning tokens on OpenRouter
+  public var reasoning: [String: Any]?
 
   enum CodingKeys: String, CodingKey {
     case messages
@@ -520,6 +525,7 @@ public struct ChatCompletionParameters: Encodable {
     case temperature
     case topP = "top_p"
     case user
+    case reasoning
   }
 
   /// If set, partial message deltas will be sent, like in ChatGPT. Tokens will be sent as data-only [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format) as they become available, with the stream terminated by a data: [DONE] message. [Example Python code](https://cookbook.openai.com/examples/how_to_stream_completions ).
@@ -527,5 +533,77 @@ public struct ChatCompletionParameters: Encodable {
   var stream: Bool? = nil
   /// Options for streaming response. Only set this when you set stream: true
   var streamOptions: StreamOptions?
+  
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    
+    try container.encode(messages, forKey: .messages)
+    try container.encode(model, forKey: .model)
+    try container.encodeIfPresent(store, forKey: .store)
+    try container.encodeIfPresent(reasoningEffort, forKey: .reasoningEffort)
+    try container.encodeIfPresent(metadata, forKey: .metadata)
+    try container.encodeIfPresent(frequencyPenalty, forKey: .frequencyPenalty)
+    try container.encodeIfPresent(functionCall, forKey: .functionCall)
+    try container.encodeIfPresent(toolChoice, forKey: .toolChoice)
+    try container.encodeIfPresent(functions, forKey: .functions)
+    try container.encodeIfPresent(tools, forKey: .tools)
+    try container.encodeIfPresent(parallelToolCalls, forKey: .parallelToolCalls)
+    try container.encodeIfPresent(logitBias, forKey: .logitBias)
+    try container.encodeIfPresent(logprobs, forKey: .logprobs)
+    try container.encodeIfPresent(topLogprobs, forKey: .topLogprobs)
+    try container.encodeIfPresent(maxTokens, forKey: .maxTokens)
+    try container.encodeIfPresent(maCompletionTokens, forKey: .maCompletionTokens)
+    try container.encodeIfPresent(n, forKey: .n)
+    try container.encodeIfPresent(modalities, forKey: .modalities)
+    try container.encodeIfPresent(prediction, forKey: .prediction)
+    try container.encodeIfPresent(audio, forKey: .audio)
+    try container.encodeIfPresent(responseFormat, forKey: .responseFormat)
+    try container.encodeIfPresent(presencePenalty, forKey: .presencePenalty)
+    try container.encodeIfPresent(seed, forKey: .seed)
+    try container.encodeIfPresent(serviceTier, forKey: .serviceTier)
+    try container.encodeIfPresent(stop, forKey: .stop)
+    try container.encodeIfPresent(stream, forKey: .stream)
+    try container.encodeIfPresent(streamOptions, forKey: .streamOptions)
+    try container.encodeIfPresent(temperature, forKey: .temperature)
+    try container.encodeIfPresent(topP, forKey: .topP)
+    try container.encodeIfPresent(user, forKey: .user)
+    
+    // Handle reasoning as a custom dictionary
+    if let reasoning = reasoning {
+      let jsonData = try JSONSerialization.data(withJSONObject: reasoning, options: [])
+      if let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] {
+        try container.encode(AnyCodable(jsonObject), forKey: .reasoning)
+      }
+    }
+  }
 
+}
+
+// Helper struct to encode Any values
+struct AnyCodable: Encodable {
+  let value: Any
+  
+  init(_ value: Any) {
+    self.value = value
+  }
+  
+  func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    
+    if let intValue = value as? Int {
+      try container.encode(intValue)
+    } else if let doubleValue = value as? Double {
+      try container.encode(doubleValue)
+    } else if let boolValue = value as? Bool {
+      try container.encode(boolValue)
+    } else if let stringValue = value as? String {
+      try container.encode(stringValue)
+    } else if let dictValue = value as? [String: Any] {
+      try container.encode(dictValue.mapValues { AnyCodable($0) })
+    } else if let arrayValue = value as? [Any] {
+      try container.encode(arrayValue.map { AnyCodable($0) })
+    } else {
+      throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "Cannot encode value of type \(type(of: value))"))
+    }
+  }
 }

@@ -31,10 +31,28 @@ public struct ChatCompletionChunkObject: Decodable {
       enum CodingKeys: String, CodingKey {
         case content
         case reasoningContent = "reasoning_content"
+        case reasoning // OpenRouter uses "reasoning" instead of "reasoning_content"
         case toolCalls = "tool_calls"
         case functionCall = "function_call"
         case role
         case refusal
+      }
+      
+      public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        content = try container.decodeIfPresent(String.self, forKey: .content)
+        toolCalls = try container.decodeIfPresent([ToolCall].self, forKey: .toolCalls)
+        functionCall = try container.decodeIfPresent(FunctionCall.self, forKey: .functionCall)
+        role = try container.decodeIfPresent(String.self, forKey: .role)
+        refusal = try container.decodeIfPresent(String.self, forKey: .refusal)
+        
+        // Handle both "reasoning_content" (OpenAI) and "reasoning" (OpenRouter)
+        if let reasoning = try container.decodeIfPresent(String.self, forKey: .reasoning) {
+          reasoningContent = reasoning
+        } else {
+          reasoningContent = try container.decodeIfPresent(String.self, forKey: .reasoningContent)
+        }
       }
     }
 

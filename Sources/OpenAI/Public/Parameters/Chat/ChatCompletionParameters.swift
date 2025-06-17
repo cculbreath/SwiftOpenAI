@@ -570,10 +570,7 @@ public struct ChatCompletionParameters: Encodable {
     
     // Handle reasoning as a custom dictionary
     if let reasoning = reasoning {
-      let jsonData = try JSONSerialization.data(withJSONObject: reasoning, options: [])
-      if let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] {
-        try container.encode(AnyCodable(jsonObject), forKey: .reasoning)
-      }
+      try container.encode(AnyCodable(reasoning), forKey: .reasoning)
     }
   }
 

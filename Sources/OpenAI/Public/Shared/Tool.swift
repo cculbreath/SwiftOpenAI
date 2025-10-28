@@ -7,6 +7,16 @@
 
 import Foundation
 
+// Simple logger wrapper for Tool warnings
+// Uses the same injected logger pattern as OpenAIService (see OpenAIService.swift)
+private class ToolLogger {
+  func warning(_ message: String) {
+    debugPrint("[OpenAI] WARNING: \(message)")
+  }
+}
+
+private let toolLogger = ToolLogger()
+
 /// An array of tools the model may call while generating a response
 public enum Tool: Codable {
   /// A tool that searches for relevant content from uploaded files
@@ -999,7 +1009,7 @@ public enum Tool: Codable {
       let decodedType = try container.decodeIfPresent(String.self, forKey: .type)
       if let decodedType, decodedType != "approximate" {
         // You can choose to throw an error here or just log a warning
-        print("Warning: Expected UserLocation type to be 'approximate', but got '\(decodedType)'")
+        toolLogger.warning("Expected UserLocation type to be 'approximate', but got '\(decodedType)'")
       }
 
       // Decode the optional properties

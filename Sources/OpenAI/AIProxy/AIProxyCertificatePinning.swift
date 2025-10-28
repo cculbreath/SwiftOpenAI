@@ -118,8 +118,9 @@ private var publicKeysAsData: [Data] = publicKeysAsHex.map { publicKeyAsHex in
   let localPublicKeyData = SecKeyCopyExternalRepresentation(publicKey, nil)! as Data
 
   if let error {
-    print("Failed to create public key: \(error.takeRetainedValue() as Error)")
-    fatalError()
+    let errorMessage = "Failed to create public key: \(error.takeRetainedValue() as Error)"
+    aiproxyLogger.error("\(errorMessage)")
+    fatalError(errorMessage)
   }
   return localPublicKeyData
 }

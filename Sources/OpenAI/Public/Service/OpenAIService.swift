@@ -10,6 +10,37 @@ import Foundation
 import FoundationNetworking
 #endif
 
+// MARK: - Logger Injection Protocol
+// This allows Sprung (or any external system) to inject a custom logger without creating a circular dependency
+// SwiftOpenAI exports the protocol but does NOT import Sprung
+
+/// Protocol for logging OpenAI operations
+/// External systems can conform to this and call setOpenAILogger() to inject their logger
+public protocol OpenAILoggerProtocol {
+  func debug(_ message: String)
+  func error(_ message: String)
+}
+
+/// Default logger implementation that uses print statements
+private class DefaultOpenAILogger: OpenAILoggerProtocol {
+  func debug(_ message: String) {
+    debugPrint("[OpenAI] \(message)")
+  }
+
+  func error(_ message: String) {
+    print("🚨 [OpenAI] ERROR: \(message)")
+  }
+}
+
+/// Global logger instance that can be injected by external systems
+private var openAILogger: OpenAILoggerProtocol = DefaultOpenAILogger()
+
+/// Allows external systems (like Sprung) to inject a custom logger
+/// Call this during your app initialization to integrate with your logging system
+public func setOpenAILogger(_ logger: OpenAILoggerProtocol) {
+  openAILogger = logger
+}
+
 // MARK: - APIError
 
 public enum APIError: Error {
@@ -1148,7 +1179,7 @@ extension OpenAIService {
       let lines = jsonString.split(separator: "\n")
       for line in lines {
         #if DEBUG
-        print("DEBUG Received line:\n\(line)")
+        openAILogger.debug("Received line: \(line)")
         #endif
         if
           let lineData = String(line).data(using: String.Encoding.utf8),
@@ -1388,7 +1419,9 @@ extension OpenAIService {
     }
     #if DEBUG
     if debugEnabled {
-      try print("DEBUG JSON FETCH API = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+      if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+        openAILogger.debug("JSON FETCH API Response: \(jsonObject)")
+      }
     }
     #endif
     do {
@@ -1399,14 +1432,14 @@ extension OpenAIService {
       let debugMessage = debug + codingPath
       #if DEBUG
       if debugEnabled {
-        print(debugMessage)
+        openAILogger.debug(debugMessage)
       }
       #endif
       throw APIError.dataCouldNotBeReadMissingData(description: debugMessage)
     } catch {
       #if DEBUG
       if debugEnabled {
-        print("\(error)")
+        openAILogger.error("Decoding error: \(error)")
       }
       #endif
       throw APIError.jsonDecodingFailure(description: error.localizedDescription)
@@ -1478,8 +1511,9 @@ extension OpenAIService {
             {
               #if DEBUG
               if debugEnabled {
-                try print(
-                  "DEBUG JSON STREAM LINE = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+                if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+                  openAILogger.debug("JSON STREAM LINE Response: \(jsonObject)")
+                }
               }
               #endif
               do {
@@ -1491,14 +1525,14 @@ extension OpenAIService {
                 let debugMessage = debug + codingPath
                 #if DEBUG
                 if debugEnabled {
-                  print(debugMessage)
+                  openAILogger.error(debugMessage)
                 }
                 #endif
                 throw APIError.dataCouldNotBeReadMissingData(description: debugMessage)
               } catch {
                 #if DEBUG
                 if debugEnabled {
-                  debugPrint("CONTINUATION ERROR DECODING \(error.localizedDescription)")
+                  openAILogger.error("Continuation error decoding: \(error.localizedDescription)")
                 }
                 #endif
                 continuation.finish(throwing: error)
@@ -1512,14 +1546,14 @@ extension OpenAIService {
           let debugMessage = debug + codingPath
           #if DEBUG
           if debugEnabled {
-            print(debugMessage)
+            openAILogger.error(debugMessage)
           }
           #endif
           throw APIError.dataCouldNotBeReadMissingData(description: debugMessage)
         } catch {
           #if DEBUG
           if debugEnabled {
-            print("CONTINUATION ERROR DECODING \(error.localizedDescription)")
+            openAILogger.error("Continuation error decoding: \(error.localizedDescription)")
           }
           #endif
           continuation.finish(throwing: error)
@@ -1619,32 +1653,36 @@ extension OpenAIService {
                     default:
                       #if DEBUG
                       if debugEnabled {
-                        try print(
-                          "DEBUG threadRun status not found = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+                        if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+                          openAILogger.debug("ThreadRun status not found: \(jsonObject)")
+                        }
                       }
                       #endif
                     }
                   default:
                     #if DEBUG
                     if debugEnabled {
-                      try print(
-                        "DEBUG EVENT \(eventObject.rawValue) IGNORED = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+                      if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+                        openAILogger.debug("Event \(eventObject.rawValue) ignored: \(jsonObject)")
+                      }
                     }
                     #endif
                   }
                 } else {
                   #if DEBUG
                   if debugEnabled {
-                    try print(
-                      "DEBUG EVENT DECODE IGNORED = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+                    if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+                      openAILogger.debug("Event decode ignored: \(jsonObject)")
+                    }
                   }
                   #endif
                 }
               } catch DecodingError.keyNotFound(let key, let context) {
                 #if DEBUG
                 if debugEnabled {
-                  try print(
-                    "DEBUG Decoding Object Failed = \(JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any])")
+                  if let jsonObject = try? JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] {
+                    openAILogger.error("Decoding object failed: \(jsonObject)")
+                  }
                 }
                 #endif
                 let debug = "Key '\(key.stringValue)' not found: \(context.debugDescription)"
@@ -1652,14 +1690,14 @@ extension OpenAIService {
                 let debugMessage = debug + codingPath
                 #if DEBUG
                 if debugEnabled {
-                  print(debugMessage)
+                  openAILogger.error(debugMessage)
                 }
                 #endif
                 throw APIError.dataCouldNotBeReadMissingData(description: debugMessage)
               } catch {
                 #if DEBUG
                 if debugEnabled {
-                  debugPrint("CONTINUATION ERROR DECODING \(error.localizedDescription)")
+                  openAILogger.error("Continuation error decoding: \(error.localizedDescription)")
                 }
                 #endif
                 continuation.finish(throwing: error)
@@ -1674,14 +1712,14 @@ extension OpenAIService {
           let debugMessage = debug + codingPath
           #if DEBUG
           if debugEnabled {
-            print(debugMessage)
+            openAILogger.error(debugMessage)
           }
           #endif
           throw APIError.dataCouldNotBeReadMissingData(description: debugMessage)
         } catch {
           #if DEBUG
           if debugEnabled {
-            print("CONTINUATION ERROR DECODING \(error.localizedDescription)")
+            openAILogger.error("Continuation error decoding: \(error.localizedDescription)")
           }
           #endif
           continuation.finish(throwing: error)
@@ -1782,7 +1820,7 @@ extension OpenAIService {
     _ request: URLRequest)
   {
     guard let url = request.url, let httpMethod = request.httpMethod else {
-      debugPrint("Invalid URL or HTTP method.")
+      openAILogger.error("Invalid URL or HTTP method.")
       return
     }
 
@@ -1809,7 +1847,7 @@ extension OpenAIService {
 
     // Print the final command
     #if DEBUG
-    print(baseCommand)
+    openAILogger.debug("cURL Command: \(baseCommand)")
     #endif
   }
 
@@ -1838,7 +1876,7 @@ extension OpenAIService {
   /// Print HTTP Response information for debugging
   /// - Parameter response: The HTTP response to print
   private func printHTTPResponse(_ response: HTTPResponse) {
-    print("STATUS CODE: \(response.statusCode)")
-    print("HEADERS: \(response.headers)")
+    openAILogger.debug("HTTP Status Code: \(response.statusCode)")
+    openAILogger.debug("HTTP Headers: \(response.headers)")
   }
 }

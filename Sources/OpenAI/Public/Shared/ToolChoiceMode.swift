@@ -20,6 +20,9 @@ public enum ToolChoiceMode: Codable {
   /// Means the model must call one or more tools.
   case required
 
+  /// Restricts the model to a specific subset of tools using the allowed_tools envelope.
+  case allowedTools(AllowedToolsChoice)
+
   /// Indicates that the model should use a built-in tool to generate a response.
   case hostedTool(HostedToolType)
 
@@ -45,6 +48,8 @@ public enum ToolChoiceMode: Codable {
           in: container,
           debugDescription: "Unknown tool choice string value: \(stringValue)")
       }
+    } else if let allowedTools = try? container.decode(AllowedToolsChoice.self) {
+      self = .allowedTools(allowedTools)
     } else if let hostedTool = try? container.decode(HostedToolType.self) {
       self = .hostedTool(hostedTool)
     } else if let functionTool = try? container.decode(FunctionTool.self) {
@@ -74,7 +79,67 @@ public enum ToolChoiceMode: Codable {
       try container.encode(tool)
     case .customTool(let tool):
       try container.encode(tool)
+    case .allowedTools(let choice):
+      try container.encode(choice)
     }
+  }
+}
+// MARK: - AllowedToolsChoice
+
+/// Allowed tools configuration for the allowed_tools tool choice envelope.
+public struct AllowedToolsChoice: Codable {
+  /// Execution mode controlling whether tools are optional or required.
+  public enum Mode: String, Codable {
+    case auto
+    case required
+  }
+
+  /// Individual allowed tool entry.
+  public struct AllowedTool: Codable {
+    public var type: String
+    public var name: String
+
+    public init(name: String, type: String = "function") {
+      self.type = type
+      self.name = name
+    }
+  }
+
+  public var type: String
+  public var mode: Mode
+  public var tools: [AllowedTool]
+
+  public init(mode: Mode, tools: [AllowedTool]) {
+    self.type = "allowed_tools"
+    self.mode = mode
+    self.tools = tools
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case mode
+    case tools
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let decodedType = try container.decode(String.self, forKey: .type)
+    guard decodedType == "allowed_tools" else {
+      throw DecodingError.dataCorruptedError(
+        forKey: .type,
+        in: container,
+        debugDescription: "Expected tool_choice type allowed_tools but found \(decodedType)")
+    }
+    self.type = decodedType
+    self.mode = try container.decode(Mode.self, forKey: .mode)
+    self.tools = try container.decode([AllowedTool].self, forKey: .tools)
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(type, forKey: .type)
+    try container.encode(mode, forKey: .mode)
+    try container.encode(tools, forKey: .tools)
   }
 }
 

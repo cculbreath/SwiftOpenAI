@@ -79,6 +79,9 @@ public enum InputItem: Codable {
   /// MCP approval response
   case mcpApprovalResponse(MCPApprovalResponse)
 
+  /// Reasoning item reference (for passing reasoning back with tool outputs)
+  case reasoningItem(ReasoningItemReference)
+
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     let type = try container.decode(String.self, forKey: .type)
@@ -98,6 +101,8 @@ public enum InputItem: Codable {
       self = try .localShellCallOutput(LocalShellCallOutput(from: decoder))
     case "mcp_approval_response":
       self = try .mcpApprovalResponse(MCPApprovalResponse(from: decoder))
+    case "reasoning":
+      self = try .reasoningItem(ReasoningItemReference(from: decoder))
     default:
       // Try to decode as message if type is not recognized
       self = try .message(InputMessage(from: decoder))
@@ -122,6 +127,8 @@ public enum InputItem: Codable {
       try output.encode(to: encoder)
     case .mcpApprovalResponse(let response):
       try response.encode(to: encoder)
+    case .reasoningItem(let item):
+      try item.encode(to: encoder)
     }
   }
 
@@ -674,5 +681,54 @@ public struct MCPApprovalResponse: Codable {
     case id
     case type
     case reason
+  }
+}
+
+// MARK: - ReasoningItemReference
+
+/// A reference to a reasoning item to include in the input context.
+/// Used to pass reasoning items back with tool outputs for reasoning models.
+public struct ReasoningItemReference: Codable {
+  public init(id: String, encryptedContent: String? = nil, summary: [SummaryItem]? = nil, status: String? = nil) {
+    self.id = id
+    self.encryptedContent = encryptedContent
+    self.summary = summary
+    self.status = status
+  }
+
+  /// Summary item in reasoning
+  public struct SummaryItem: Codable {
+    /// The summary text
+    public let text: String
+    /// The type of the summary. Always "summary_text"
+    public let type: String
+
+    public init(text: String, type: String = "summary_text") {
+      self.text = text
+      self.type = type
+    }
+  }
+
+  /// The unique ID of the reasoning item
+  public let id: String
+
+  /// The type of the item. Always "reasoning"
+  public let type = "reasoning"
+
+  /// The encrypted content of the reasoning item (optional)
+  public let encryptedContent: String?
+
+  /// Summary of the reasoning (optional)
+  public let summary: [SummaryItem]?
+
+  /// The status of the item (optional)
+  public let status: String?
+
+  enum CodingKeys: String, CodingKey {
+    case id
+    case type
+    case encryptedContent = "encrypted_content"
+    case summary
+    case status
   }
 }

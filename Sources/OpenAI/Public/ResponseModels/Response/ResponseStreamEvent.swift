@@ -1332,6 +1332,10 @@ public struct ReasoningSummaryDoneEvent: Decodable {
 // MARK: - ErrorEvent
 
 /// Emitted when an error occurs
+/// Note: OpenAI's actual error format differs from documentation.
+/// Documented format has message/code/param at root level.
+/// Actual format nests them inside an "error" object.
+/// This struct handles both formats for compatibility.
 public struct ErrorEvent: Decodable {
   public let type: String
   public let code: String?
@@ -1339,12 +1343,39 @@ public struct ErrorEvent: Decodable {
   public let param: String?
   public let sequenceNumber: Int?
 
+  /// Nested error object structure (what OpenAI actually returns)
+  private struct NestedError: Decodable {
+    let type: String?
+    let code: String?
+    let message: String?
+    let param: String?
+  }
+
   enum CodingKeys: String, CodingKey {
     case type
     case code
     case message
     case param
+    case error
     case sequenceNumber = "sequence_number"
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    type = try container.decode(String.self, forKey: .type)
+    sequenceNumber = try container.decodeIfPresent(Int.self, forKey: .sequenceNumber)
+
+    // Try nested error object first (actual OpenAI format)
+    if let nestedError = try container.decodeIfPresent(NestedError.self, forKey: .error) {
+      message = nestedError.message ?? "Unknown error"
+      code = nestedError.code
+      param = nestedError.param
+    } else {
+      // Fall back to flat format (documented format)
+      message = try container.decodeIfPresent(String.self, forKey: .message) ?? "Unknown error"
+      code = try container.decodeIfPresent(String.self, forKey: .code)
+      param = try container.decodeIfPresent(String.self, forKey: .param)
+    }
   }
 }
 

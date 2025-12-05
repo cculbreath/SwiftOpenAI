@@ -26,6 +26,7 @@ public struct ModelResponseParameter: Codable {
     previousResponseId: String? = nil,
     prompt: Prompt? = nil,
     promptCacheKey: String? = nil,
+    promptCacheRetention: String? = nil,
     safetyIdentifier: String? = nil,
     reasoning: Reasoning? = nil,
     serviceTier: String? = nil,
@@ -54,6 +55,7 @@ public struct ModelResponseParameter: Codable {
     self.previousResponseId = previousResponseId
     self.prompt = prompt
     self.promptCacheKey = promptCacheKey
+    self.promptCacheRetention = promptCacheRetention
     self.safetyIdentifier = safetyIdentifier
     self.reasoning = reasoning
     self.serviceTier = serviceTier
@@ -149,6 +151,10 @@ public struct ModelResponseParameter: Codable {
   /// Used by OpenAI to cache responses for similar requests to optimize your cache hit rates. Replaces the user field. Learn more.
   public var promptCacheKey: String?
 
+  /// The prompt cache retention policy. Allowed values are "in_memory" (default, 5-10 min) and "24h" (extended, up to 24 hours).
+  /// Extended cache retention is available for gpt-5.1, gpt-5, and gpt-4.1 models.
+  public var promptCacheRetention: String?
+
   /// A stable identifier used to help detect users of your application that may be violating OpenAI's usage policies. The IDs should be a string that uniquely identifies each user. We recommend hashing their username or email address, in order to avoid sending us any identifying information. Learn more.
   public var safetyIdentifier: String?
 
@@ -232,6 +238,7 @@ public struct ModelResponseParameter: Codable {
     case previousResponseId = "previous_response_id"
     case prompt
     case promptCacheKey = "prompt_cache_key"
+    case promptCacheRetention = "prompt_cache_retention"
     case safetyIdentifier = "safety_identifier"
     case reasoning
     case serviceTier = "service_tier"

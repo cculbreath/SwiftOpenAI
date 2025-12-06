@@ -50,6 +50,13 @@ public final class DefaultOpenAIAzureService: OpenAIService {
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
 
+  public func createStreamingSpeech(parameters _: AudioSpeechParameters) async throws
+    -> AsyncThrowingStream<AudioSpeechChunkObject, Error>
+  {
+    throw APIError.requestFailed(
+      description: "Streaming TTS is not supported for Azure OpenAI. Please use DefaultOpenAIService instead.")
+  }
+
 #if canImport(AVFoundation)
   public func realtimeSession(
     model _: String,

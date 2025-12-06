@@ -95,21 +95,15 @@ struct AIProxyService: OpenAIService {
     return AudioSpeechObject(output: data)
   }
 
-  func createStreamingSpeech(
-    parameters: AudioSpeechParameters)
-    async throws -> AsyncThrowingStream<AudioSpeechChunkObject, Error>
+#if canImport(AVFoundation)
+  func realtimeSession(
+    model _: String,
+    configuration _: OpenAIRealtimeSessionConfiguration)
+    async throws -> OpenAIRealtimeSession
   {
-    var streamingParameters = parameters
-    streamingParameters.stream = true
-    let request = try await OpenAIAPI.audio(.speech).request(
-      aiproxyPartialKey: partialKey,
-      clientID: clientID,
-      organizationID: organizationID,
-      openAIEnvironment: openAIEnvironment,
-      method: .post,
-      params: streamingParameters)
-    return try await fetchAudioStream(debugEnabled: debugEnabled, with: request)
+    fatalError("Realtime API is not yet supported for AIProxy. Please use DefaultOpenAIService instead.")
   }
+  #endif
 
   // MARK: Chat
 

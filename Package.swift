@@ -26,8 +26,10 @@ let package = Package(
       name: "SwiftOpenAI",
       dependencies: [
         .product(name: "AsyncHTTPClient", package: "async-http-client", condition: .when(platforms: [.linux])),
-      ]),
+      ],
+      path: "Sources/OpenAI"),
     .testTarget(
       name: "SwiftOpenAITests",
-      dependencies: ["SwiftOpenAI"]),
+      dependencies: ["SwiftOpenAI"],
+      path: "Tests/OpenAITests"),
   ])

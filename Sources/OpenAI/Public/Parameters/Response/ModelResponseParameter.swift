@@ -46,7 +46,7 @@ public struct ModelResponseParameter: Codable {
     self.conversation = conversation
     self.input = input
     self.model = model.value
-    self.include = include?.compactMap(\.rawValue)
+    self.include = include?.map(\.rawValue)
     self.instructions = instructions
     self.maxOutputTokens = maxOutputTokens
     self.maxToolCalls = maxToolCalls

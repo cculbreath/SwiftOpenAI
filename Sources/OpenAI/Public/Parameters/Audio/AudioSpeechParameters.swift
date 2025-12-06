@@ -83,4 +83,6 @@ public struct AudioSpeechParameters: Encodable {
   let responseFormat: String?
   /// Defaults to 1,  The speed of the generated audio. Select a value from 0.25 to 4.0. 1.0 is the default.
   let speed: Double?
+  /// Whether to stream the audio response. When true, the response will be streamed as chunks instead of returning all at once.
+  var stream: Bool?
 }

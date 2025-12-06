@@ -44,14 +44,16 @@ public struct AudioSpeechParameters: Encodable {
 
   public enum Voice: String {
     case alloy
+    case ash
+    case ballad
+    case coral
     case echo
     case fable
-    case onyx
     case nova
-    case shimmer
-    case ash
-    case coral
+    case onyx
     case sage
+    case shimmer
+    case verse
   }
 
   public enum ResponseFormat: String {

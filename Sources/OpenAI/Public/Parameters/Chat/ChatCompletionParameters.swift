@@ -103,6 +103,28 @@ public struct ChatCompletionParameters: Encodable {
         case text(String)
         case imageUrl(ImageDetail)
         case inputAudio(AudioDetail)
+        case file(FileDetail)
+
+        public struct FileDetail: Encodable, Equatable, Hashable {
+          public let filename: String
+          public let fileData: String
+
+          enum CodingKeys: String, CodingKey {
+            case filename
+            case fileData = "file_data"
+          }
+
+          public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(filename, forKey: .filename)
+            try container.encode(fileData, forKey: .fileData)
+          }
+
+          public init(filename: String, fileData: String) {
+            self.filename = filename
+            self.fileData = fileData
+          }
+        }
 
         public struct ImageDetail: Encodable, Equatable, Hashable {
           public let url: URL
@@ -154,6 +176,8 @@ public struct ChatCompletionParameters: Encodable {
             a == b
           case (.inputAudio(let a), .inputAudio(let b)):
             a == b
+          case (.file(let a), .file(let b)):
+            a == b
           default:
             false
           }
@@ -173,6 +197,10 @@ public struct ChatCompletionParameters: Encodable {
           case .inputAudio(let audioDetail):
             try container.encode("input_audio", forKey: .type)
             try container.encode(audioDetail, forKey: .inputAudio)
+
+          case .file(let fileDetail):
+            try container.encode("file", forKey: .type)
+            try container.encode(fileDetail, forKey: .file)
           }
         }
 
@@ -184,6 +212,8 @@ public struct ChatCompletionParameters: Encodable {
             hasher.combine(imageDetail)
           case .inputAudio(let audioDetail):
             hasher.combine(audioDetail)
+          case .file(let fileDetail):
+            hasher.combine(fileDetail)
           }
         }
 
@@ -192,6 +222,7 @@ public struct ChatCompletionParameters: Encodable {
           case text
           case imageUrl = "image_url"
           case inputAudio = "input_audio"
+          case file
         }
       }
 

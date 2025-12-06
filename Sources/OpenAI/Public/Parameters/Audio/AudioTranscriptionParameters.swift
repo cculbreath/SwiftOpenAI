@@ -11,7 +11,6 @@ import Foundation
 
 /// [Transcribes audio into the input language.](https://platform.openai.com/docs/api-reference/audio/createTranscription)
 public struct AudioTranscriptionParameters: Encodable {
-
   public init(
     fileName: String,
     file: Data,
@@ -72,13 +71,11 @@ public struct AudioTranscriptionParameters: Encodable {
   /// Defaults to segment
   /// The timestamp granularities to populate for this transcription. response_format must be set verbose_json to use timestamp granularities. Either or both of these options are supported: word, or segment. Note: There is no additional latency for segment timestamps, but generating word timestamps incurs additional latency.
   let timestampGranularities: [String]?
-
 }
 
 // MARK: MultipartFormDataParameters
 
 extension AudioTranscriptionParameters: MultipartFormDataParameters {
-
   public func encode(boundary: String) -> Data {
     MultipartFormDataBuilder(boundary: boundary, entries: [
       .file(paramName: Self.CodingKeys.file.rawValue, fileName: fileName, fileData: file, contentType: "audio/mpeg"),

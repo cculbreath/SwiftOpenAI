@@ -9,7 +9,6 @@ import Foundation
 
 /// Describes an OpenAI [model](https://platform.openai.com/docs/api-reference/models/object) offering that can be used with the API.
 public struct ModelObject: Decodable {
-
   public struct Permission: Decodable {
     public let id: String?
     public let object: String?
@@ -45,9 +44,9 @@ public struct ModelObject: Decodable {
   /// The Unix timestamp (in seconds) when the model was created.
   public let created: Int?
   /// The object type, which is always "model".
-  public let object: String
+  public let object: String?
   /// The organization that owns the model.
-  public let ownedBy: String
+  public let ownedBy: String?
   /// An array representing the current permissions of a model. Each element in the array corresponds to a specific permission setting. If there are no permissions or if the data is unavailable, the array may be nil.
   public let permission: [Permission]?
 
@@ -58,5 +57,4 @@ public struct ModelObject: Decodable {
     case ownedBy = "owned_by"
     case permission
   }
-
 }

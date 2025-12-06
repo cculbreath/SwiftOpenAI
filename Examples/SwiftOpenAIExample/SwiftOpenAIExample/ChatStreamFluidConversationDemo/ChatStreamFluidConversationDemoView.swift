@@ -9,15 +9,17 @@ import SwiftOpenAI
 import SwiftUI
 
 struct ChatStreamFluidConversationDemoView: View {
-
-  init(service: OpenAIService) {
-    _chatProvider = State(initialValue: ChatFluidConversationProvider(service: service))
+  init(service: OpenAIService, customModel: String? = nil) {
+    self.customModel = customModel
+    _chatProvider = State(initialValue: ChatFluidConversationProvider(service: service, customModel: customModel))
   }
 
   enum GPTModel: String, CaseIterable {
     case gpt3dot5 = "GPT-3.5"
     case gpt4 = "GPT-4"
   }
+
+  let customModel: String?
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -75,9 +77,16 @@ struct ChatStreamFluidConversationDemoView: View {
           prompt = ""
         }
         /// Make the request
+        let model: Model =
+          if let customModel, !customModel.isEmpty {
+            .custom(customModel)
+          } else {
+            selectedModel == .gpt3dot5 ? .gpt35Turbo : .gpt4
+          }
+
         try await chatProvider.startStreamedChat(parameters: .init(
           messages: [.init(role: .user, content: .text(prompt))],
-          model: selectedModel == .gpt3dot5 ? .gpt35Turbo : .gpt4), prompt: prompt)
+          model: model), prompt: prompt)
       }
     } label: {
       Image(systemName: "paperplane")
@@ -89,5 +98,4 @@ struct ChatStreamFluidConversationDemoView: View {
   @State private var isLoading = false
   @State private var prompt = ""
   @State private var selectedModel = GPTModel.gpt3dot5
-
 }

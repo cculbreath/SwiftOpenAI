@@ -10,14 +10,12 @@ import Foundation
 // MARK: - LocalModelAPI
 
 enum LocalModelAPI {
-
   case chat
 }
 
 // MARK: Endpoint
 
 extension LocalModelAPI: Endpoint {
-
   /// Builds the final path that includes:
   ///   - optional proxy path (e.g. "/my-proxy")
   ///   - version if non-nil (e.g. "/v1")

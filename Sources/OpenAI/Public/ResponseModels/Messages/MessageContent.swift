@@ -7,11 +7,10 @@
 
 import Foundation
 
-// MARK: - MessageContent
+// MARK: - AssistantMessageContent
 
 ///  The [content](https://platform.openai.com/docs/api-reference/messages/object#messages/object-content) of the message in array of text and/or images.
-public enum MessageContent: Codable {
-
+public enum AssistantMessageContent: Codable {
   case imageFile(ImageFile)
   case imageUrl(ImageURL)
   case text(Text)
@@ -65,14 +64,12 @@ public enum MessageContent: Codable {
   enum ContentTypeKey: CodingKey {
     case type
   }
-
 }
 
 // MARK: - ImageFile
 
 public struct ImageFile: Codable {
   public struct ImageFileContent: Codable {
-
     /// The [File](https://platform.openai.com/docs/api-reference/files) ID of the image in the message content.
     public let fileID: String
 
@@ -97,7 +94,6 @@ public struct ImageFile: Codable {
 
 public struct ImageURL: Codable {
   public struct ImageUrlContent: Codable {
-
     /// The [File](https://platform.openai.com/docs/api-reference/files) URL  of the image in the message content.
     public let url: String
 
@@ -121,7 +117,6 @@ public struct ImageURL: Codable {
 // MARK: - Text
 
 public struct Text: Codable {
-
   /// Always text.
   public let type: String
   /// The text content that is part of a message.
@@ -138,7 +133,6 @@ public struct Text: Codable {
 // MARK: - Annotation
 
 public enum Annotation: Codable {
-
   case fileCitation(FileCitation)
   case filePath(FilePath)
 
@@ -186,16 +180,13 @@ public enum Annotation: Codable {
   enum AnnotationTypeKey: CodingKey {
     case type
   }
-
 }
 
 // MARK: - FileCitation
 
 /// A citation within the message that points to a specific quote from a specific File associated with the assistant or the message. Generated when the assistant uses the "retrieval" tool to search files.
 public struct FileCitation: Codable {
-
   public struct FileCitationDetails: Codable {
-
     /// The ID of the specific File the citation is from.
     public let fileID: String
     /// The specific quote in the file.
@@ -228,7 +219,6 @@ public struct FileCitation: Codable {
 
 /// A URL for the file that's generated when the assistant used the code_interpreter tool to generate a file.
 public struct FilePath: Codable {
-
   public struct FilePathDetails: Codable {
     /// The ID of the file that was generated.
     public let fileID: String

@@ -8,24 +8,27 @@
 import Foundation
 
 struct LocalModelService: OpenAIService {
-
-  public init(
+  init(
     apiKey: Authorization = .apiKey(""),
     baseURL: String,
     proxyPath: String? = nil,
     overrideVersion: String? = nil,
-    configuration: URLSessionConfiguration = .default,
+    httpClient: HTTPClient,
     decoder: JSONDecoder = .init(),
     debugEnabled: Bool)
   {
-    session = URLSession(configuration: configuration)
+    self.httpClient = httpClient
     self.decoder = decoder
     self.apiKey = apiKey
     openAIEnvironment = OpenAIEnvironment(baseURL: baseURL, proxyPath: proxyPath, version: overrideVersion ?? "v1")
     self.debugEnabled = debugEnabled
   }
 
-  public func createImages(
+  let httpClient: HTTPClient
+  let decoder: JSONDecoder
+  let openAIEnvironment: OpenAIEnvironment
+
+  func createImages(
     parameters _: CreateImageParameters)
     async throws -> CreateImageResponse
   {
@@ -33,7 +36,7 @@ struct LocalModelService: OpenAIService {
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
 
-  public func editImage(
+  func editImage(
     parameters _: CreateImageEditParameters)
     async throws -> CreateImageResponse
   {
@@ -41,17 +44,13 @@ struct LocalModelService: OpenAIService {
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
 
-  public func createImageVariations(
+  func createImageVariations(
     parameters _: CreateImageVariationParameters)
     async throws -> CreateImageResponse
   {
     fatalError(
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
-
-  let session: URLSession
-  let decoder: JSONDecoder
-  let openAIEnvironment: OpenAIEnvironment
 
   func createTranscription(parameters _: AudioTranscriptionParameters) async throws -> AudioObject {
     fatalError(
@@ -68,10 +67,16 @@ struct LocalModelService: OpenAIService {
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
 
-  func createStreamingSpeech(parameters _: AudioSpeechParameters) async throws -> AsyncThrowingStream<AudioSpeechChunkObject, Error> {
+#if canImport(AVFoundation)
+  func realtimeSession(
+    model _: String,
+    configuration _: OpenAIRealtimeSessionConfiguration)
+    async throws -> OpenAIRealtimeSession
+  {
     fatalError(
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
   }
+  #endif
 
   func startChat(
     parameters: ChatCompletionParameters)
@@ -511,8 +516,123 @@ struct LocalModelService: OpenAIService {
   }
 
   func responseModel(
+    id _: String,
+    parameters _: GetResponseParameter?)
+    async throws -> ResponseModel
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func responseModelStream(
+    id _: String,
+    parameters _: GetResponseParameter?)
+    async throws -> AsyncThrowingStream<ResponseStreamEvent, Error>
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func responseCreateStream(
+    _: ModelResponseParameter)
+    async throws -> AsyncThrowingStream<ResponseStreamEvent, Error>
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func responseDelete(
+    id _: String)
+    async throws -> DeletionStatus
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func responseCancel(
     id _: String)
     async throws -> ResponseModel
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func responseInputItems(
+    id _: String,
+    parameters _: GetInputItemsParameter?)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  // MARK: - Conversations
+
+  func conversationCreate(
+    parameters _: CreateConversationParameter?)
+    async throws -> ConversationModel
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func getConversation(
+    id _: String)
+    async throws -> ConversationModel
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func updateConversation(
+    id _: String,
+    parameters _: UpdateConversationParameter)
+    async throws -> ConversationModel
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func deleteConversation(
+    id _: String)
+    async throws -> DeletionStatus
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func getConversationItems(
+    id _: String,
+    parameters _: GetConversationItemsParameter?)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func createConversationItems(
+    id _: String,
+    parameters _: CreateConversationItemsParameter)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func getConversationItem(
+    conversationID _: String,
+    itemID _: String,
+    parameters _: GetConversationItemParameter?)
+    async throws -> InputItem
+  {
+    fatalError(
+      "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
+  }
+
+  func deleteConversationItem(
+    conversationID _: String,
+    itemID _: String)
+    async throws -> ConversationModel
   {
     fatalError(
       "Currently, this API is not supported. We welcome and encourage contributions to our open-source project. Please consider opening an issue or submitting a pull request to add support for this feature.")
@@ -522,5 +642,4 @@ struct LocalModelService: OpenAIService {
   private let apiKey: Authorization
   /// Set this flag to TRUE if you need to print request events in DEBUG builds.
   private let debugEnabled: Bool
-
 }

@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct ChatDisplayMessageView: View {
-
   let message: ChatDisplayMessage
 
   var body: some View {
@@ -97,8 +96,7 @@ struct ChatDisplayMessageView: View {
     }
   }
 
-  @State private var urls: [URL] = []
-
+  @State private var urls = [URL]()
 }
 
 #Preview {

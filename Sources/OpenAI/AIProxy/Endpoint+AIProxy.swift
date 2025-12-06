@@ -4,7 +4,7 @@
 //
 //  Created by Lou Zell on 3/26/24.
 //
-
+#if !os(Linux)
 import DeviceCheck
 import Foundation
 import OSLog
@@ -33,7 +33,6 @@ private let deviceCheckWarning = """
 // MARK: Endpoint+AIProxy
 
 extension Endpoint {
-
   func request(
     aiproxyPartialKey: String,
     clientID: String?,
@@ -122,7 +121,6 @@ extension Endpoint {
     }
     return components
   }
-
 }
 
 // MARK: Private Helpers
@@ -159,7 +157,8 @@ private func getClientID() -> String? {
   #endif
 }
 
-// MARK: IOKit conditional dependency
+    // MARK: IOKit conditional dependency
+
 /// These functions are used on macOS for creating a client identifier.
 /// Unfortunately, macOS does not have a straightforward helper like UIKit's `identifierForVendor`
 #if canImport(IOKit)
@@ -241,4 +240,5 @@ private func copy_mac_address() -> CFData? {
 
   return nil
 }
+#endif
 #endif

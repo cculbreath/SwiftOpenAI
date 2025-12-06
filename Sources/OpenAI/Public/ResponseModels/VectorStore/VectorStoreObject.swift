@@ -8,7 +8,6 @@
 import Foundation
 
 public struct VectorStoreObject: Decodable {
-
   /// The identifier, which can be referenced in API endpoints.
   public let id: String
   /// The object type, which is always vector_store.

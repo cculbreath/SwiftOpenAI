@@ -9,11 +9,8 @@ import Foundation
 
 /// Represents a chat [completion](https://platform.openai.com/docs/api-reference/chat/object) response returned by model, based on the provided input.
 public struct ChatCompletionObject: Decodable {
-
   public struct ChatChoice: Decodable {
-
     public struct ChatMessage: Decodable {
-
       /// Provided by the Vision API.
       public struct FinishDetails: Decodable {
         let type: String?
@@ -95,7 +92,6 @@ public struct ChatCompletionObject: Decodable {
       let bytes: [Int]?
       /// List of the most likely tokens and their log probability, at this token position. In rare cases, there may be fewer than the number of requested top_logprobs returned.
       let topLogprobs: [TopLogProb]?
-
     }
 
     /// The reason the model stopped generating tokens. This will be stop if the model hit a natural stop point or a provided stop sequence, length if the maximum number of tokens specified in the request was reached, content_filter if content was omitted due to a flag from our content filters, tool_calls if the model called a tool, or function_call (deprecated) if the model called a function.

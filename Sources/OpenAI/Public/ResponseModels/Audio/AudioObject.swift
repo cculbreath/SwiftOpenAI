@@ -9,9 +9,7 @@ import Foundation
 
 /// The [audio](https://platform.openai.com/docs/api-reference/audio) response.
 public struct AudioObject: Decodable {
-
   public struct Word: Decodable {
-
     /// The text content of the word.
     public let word: String
     /// Start time of the word in seconds.
@@ -66,5 +64,4 @@ public struct AudioObject: Decodable {
   public let words: [Word]?
   /// Segments of the transcribed text and their corresponding details.
   public let segments: [Segment]?
-
 }

@@ -25,7 +25,6 @@ import Foundation
 // MARK: ToolResources
 
 public struct ToolResources: Codable {
-
   // MARK: ToolResources+Initializer
 
   public init(
@@ -39,7 +38,6 @@ public struct ToolResources: Codable {
   // MARK: FileSearch
 
   public struct FileSearch: Codable {
-
     public init(
       vectorStoreIds: [String]?,
       vectorStores: [VectorStore]?)
@@ -49,7 +47,6 @@ public struct ToolResources: Codable {
     }
 
     public struct VectorStore: Codable {
-
       public init(
         fileIDS: [String]?,
         chunkingStrategy: ChunkingStrategy?,
@@ -102,7 +99,6 @@ public struct ToolResources: Codable {
           case maxChunkSizeTokens = "max_chunk_size_tokens"
           case chunkOverlapTokens = "chunk_overlap_tokens"
         }
-
       }
 
       /// A list of [file](https://platform.openai.com/docs/api-reference/files) IDs to add to the vector store. There can be a maximum of 10000 files in a vector store.
@@ -117,7 +113,6 @@ public struct ToolResources: Codable {
         case chunkingStrategy = "chunking_strategy"
         case metadata
       }
-
     }
 
     /// The [vector store](https://platform.openai.com/docs/api-reference/vector-stores/object) attached to this assistant. There can be a maximum of 1 vector store attached to the assistant.
@@ -130,13 +125,11 @@ public struct ToolResources: Codable {
       case vectorStoreIds = "vector_store_ids"
       case vectorStores = "vector_stores"
     }
-
   }
 
   // MARK: CodeInterpreter
 
   public struct CodeInterpreter: Codable {
-
     public let fileIds: [String]
 
     enum CodingKeys: String, CodingKey {
@@ -155,5 +148,4 @@ public struct ToolResources: Codable {
     case fileSearch = "file_search"
     case codeInterpreter = "code_interpreter"
   }
-
 }

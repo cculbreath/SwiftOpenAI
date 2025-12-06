@@ -11,7 +11,6 @@ import SwiftUI
 // MARK: - FileAttachmentView
 
 struct FileAttachmentView: View {
-
   init(
     service: OpenAIService,
     action: FilePickerAction,
@@ -115,6 +114,8 @@ extension View {
     modifier(OnFirstAppear(perform: perform))
   }
 }
+
+// MARK: - DeletionStatus + @retroactive Equatable
 
 extension DeletionStatus: @retroactive Equatable {
   public static func ==(lhs: DeletionStatus, rhs: DeletionStatus) -> Bool {

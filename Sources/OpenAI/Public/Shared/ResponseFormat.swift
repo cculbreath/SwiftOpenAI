@@ -21,7 +21,6 @@ import Foundation
 ///
 /// [Documentation](https://platform.openai.com/docs/api-reference/chat/create#chat-create-response_format)
 public enum ResponseFormat: Codable, Equatable {
-
   case text // The type of response format being defined: text.
   case jsonObject // The type of response format being defined: json_object.
   case jsonSchema(JSONSchemaResponseFormat) // The type of response format being defined: json_schema.

@@ -10,7 +10,6 @@ import Foundation
 /// BETA.
 /// Represents an [assistant](https://platform.openai.com/docs/api-reference/assistants) that can call the model and use tools.
 public struct AssistantObject: Decodable {
-
   public init(
     id: String,
     object: String,
@@ -42,7 +41,6 @@ public struct AssistantObject: Decodable {
   }
 
   public struct Tool: Codable {
-
     public init(
       type: ToolType,
       function: ChatCompletionParameters.ChatFunction? = nil)
@@ -63,7 +61,6 @@ public struct AssistantObject: Decodable {
 
     /// Helper.
     public var displayToolType: ToolType? { .init(rawValue: type) }
-
   }
 
   /// The identifier, which can be referenced in API endpoints.
@@ -114,5 +111,4 @@ public struct AssistantObject: Decodable {
     case topP = "top_p"
     case responseFormat = "response_format"
   }
-
 }

@@ -9,7 +9,6 @@ import Foundation
 
 /// [Reference](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference)
 public struct AzureOpenAIConfiguration {
-
   public init(
     resourceName: String,
     openAIAPIKey: Authorization,
@@ -33,5 +32,4 @@ public struct AzureOpenAIConfiguration {
 
   /// Azure configuration extra headers for a request.
   let extraHeaders: [String: String]?
-
 }

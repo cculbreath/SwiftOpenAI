@@ -11,7 +11,6 @@ import Foundation
 
 /// Controls which (if any) tool is called by the model.
 public enum ToolChoiceMode: Codable {
-
   /// Means the model will not call any tool and instead generates a message.
   case none
 
@@ -26,6 +25,9 @@ public enum ToolChoiceMode: Codable {
 
   /// Use this option to force the model to call a specific function.
   case functionTool(FunctionTool)
+
+  /// Use this option to force the model to call a specific custom tool.
+  case customTool(CustomToolChoice)
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.singleValueContainer()
@@ -47,6 +49,8 @@ public enum ToolChoiceMode: Codable {
       self = .hostedTool(hostedTool)
     } else if let functionTool = try? container.decode(FunctionTool.self) {
       self = .functionTool(functionTool)
+    } else if let customTool = try? container.decode(CustomToolChoice.self) {
+      self = .customTool(customTool)
     } else {
       throw DecodingError.dataCorruptedError(
         in: container,
@@ -68,9 +72,10 @@ public enum ToolChoiceMode: Codable {
       try container.encode(toolType)
     case .functionTool(let tool):
       try container.encode(tool)
+    case .customTool(let tool):
+      try container.encode(tool)
     }
   }
-
 }
 
 // MARK: - HostedToolType
@@ -81,7 +86,7 @@ public enum HostedToolType: Codable {
   case fileSearch
 
   /// Web search tool
-  case webSearchPreview
+  case webSearch
 
   /// Computer use tool
   case computerUsePreview
@@ -96,8 +101,8 @@ public enum HostedToolType: Codable {
     switch type {
     case "file_search":
       self = .fileSearch
-    case "web_search_preview":
-      self = .webSearchPreview
+    case "web_search", "web_search_2025_08_26":
+      self = .webSearch
     case "computer_use_preview":
       self = .computerUsePreview
     default:
@@ -111,8 +116,8 @@ public enum HostedToolType: Codable {
     switch self {
     case .fileSearch:
       try container.encode("file_search", forKey: .type)
-    case .webSearchPreview:
-      try container.encode("web_search_preview", forKey: .type)
+    case .webSearch:
+      try container.encode("web_search", forKey: .type)
     case .computerUsePreview:
       try container.encode("computer_use_preview", forKey: .type)
     case .custom(let value):
@@ -134,6 +139,26 @@ public struct FunctionTool: Codable {
 
   /// For function calling, the type is always function
   public var type = "function"
+
+  public init(name: String) {
+    self.name = name
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case name
+    case type
+  }
+}
+
+// MARK: - CustomToolChoice
+
+/// Custom tool choice specification
+public struct CustomToolChoice: Codable {
+  /// The name of the custom tool to call
+  public var name: String
+
+  /// For custom tool calling, the type is always custom
+  public var type = "custom"
 
   public init(name: String) {
     self.name = name

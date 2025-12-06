@@ -11,7 +11,6 @@ import Foundation
 
 /// The fine_tuning.job object represents a [fine-tuning job](https://platform.openai.com/docs/api-reference/fine-tuning/object) that has been created through the API.
 public struct FineTuningJobObject: Decodable {
-
   public enum Status: String {
     case validatingFiles = "validating_files"
     case queued
@@ -76,13 +75,11 @@ public struct FineTuningJobObject: Decodable {
     case trainingFile = "training_file"
     case validationFile = "validation_file"
   }
-
 }
 
 // MARK: - IntOrStringValue
 
 public enum IntOrStringValue: Decodable {
-
   case int(Int)
   case string(String)
 

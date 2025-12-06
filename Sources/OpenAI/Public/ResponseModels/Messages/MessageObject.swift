@@ -11,7 +11,6 @@ import Foundation
 /// Represents a [message](https://platform.openai.com/docs/api-reference/messages) within a [thread](https://platform.openai.com/docs/api-reference/threads).
 /// [Message Object](https://platform.openai.com/docs/api-reference/messages/object)
 public struct MessageObject: Codable {
-
   public init(
     id: String,
     object: String,
@@ -89,5 +88,4 @@ public struct MessageObject: Codable {
     case attachments
     case metadata
   }
-
 }

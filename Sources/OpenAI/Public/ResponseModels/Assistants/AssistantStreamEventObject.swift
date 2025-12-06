@@ -10,7 +10,6 @@ import Foundation
 /// Represents an [event](https://platform.openai.com/docs/api-reference/assistants-streaming/events) emitted when streaming a Run.
 /// Each event in a server-sent events stream has an event and data property:
 public enum AssistantStreamEventObject: String {
-
   /// Occurs when a new thread is created.
   /// - data is a [thread](https://platform.openai.com/docs/api-reference/threads/object)
   case threadCreated = "thread.created"

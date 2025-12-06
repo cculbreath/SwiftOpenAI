@@ -9,7 +9,6 @@ import Foundation
 
 /// [Generates audio from the input text.](https://platform.openai.com/docs/api-reference/audio/createSpeech)
 public struct AudioSpeechParameters: Encodable {
-
   public init(
     model: TTSModel,
     input: String,
@@ -83,5 +82,4 @@ public struct AudioSpeechParameters: Encodable {
   let speed: Double?
   /// Whether to stream the audio response. When true, the response will be streamed as chunks instead of returning all at once.
   var stream: Bool?
-
 }

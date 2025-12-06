@@ -9,7 +9,6 @@ import Foundation
 
 /// [Fine-tuning job event object](https://platform.openai.com/docs/api-reference/fine-tuning/event-object)
 public struct FineTuningJobEventObject: Decodable {
-
   public struct Data: Decodable {
     public let step: Int
     public let trainLoss: Double

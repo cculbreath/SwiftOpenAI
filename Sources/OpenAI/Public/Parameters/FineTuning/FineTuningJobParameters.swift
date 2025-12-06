@@ -10,7 +10,6 @@ import Foundation
 /// [Creates a job](https://platform.openai.com/docs/api-reference/fine-tuning/create) that fine-tunes a specified model from a given dataset.
 /// Response includes details of the enqueued job including job status and the name of the fine-tuned models once complete.
 public struct FineTuningJobParameters: Encodable {
-
   public init(
     model: Model,
     trainingFile: String,
@@ -106,5 +105,4 @@ public struct FineTuningJobParameters: Encodable {
   let integrations: [Integration]?
   /// The seed controls the reproducibility of the job. Passing in the same seed and job parameters should produce the same results, but may differ in rare cases. If a seed is not specified, one will be generated for you.
   let seed: Int?
-
 }

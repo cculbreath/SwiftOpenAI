@@ -9,7 +9,6 @@ import Foundation
 
 /// Represents token usage details including input tokens, output tokens, a breakdown of output tokens, and the total tokens used.
 public struct Usage: Codable {
-
   /// Details about input tokens
   public struct InputTokensDetails: Codable {
     /// Number of cached tokens

@@ -9,7 +9,6 @@ import Foundation
 
 /// Create a [Thread](https://platform.openai.com/docs/api-reference/threads/createThread)
 public struct CreateThreadParameters: Encodable {
-
   public init(
     messages: [MessageObject]? = nil,
     toolResources: ToolResources? = nil,
@@ -32,5 +31,4 @@ public struct CreateThreadParameters: Encodable {
     case toolResources = "tool_resources"
     case metadata
   }
-
 }

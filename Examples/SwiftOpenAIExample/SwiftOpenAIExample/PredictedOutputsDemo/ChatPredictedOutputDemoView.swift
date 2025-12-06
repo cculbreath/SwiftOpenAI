@@ -13,10 +13,12 @@ import SwiftUI
 
 /// https://platform.openai.com/docs/guides/predicted-outputs
 struct ChatPredictedOutputDemoView: View {
-
-  init(service: OpenAIService) {
+  init(service: OpenAIService, customModel: String? = nil) {
+    self.customModel = customModel
     chatProvider = ChatProvider(service: service)
   }
+
+  let customModel: String?
 
   var body: some View {
     ScrollView {
@@ -49,13 +51,20 @@ struct ChatPredictedOutputDemoView: View {
 
           let content = ChatCompletionParameters.Message.ContentType.text(prompt)
           prompt = ""
+          let model: Model =
+            if let customModel, !customModel.isEmpty {
+              .custom(customModel)
+            } else {
+              .gpt4o
+            }
+
           let parameters = ChatCompletionParameters(
             messages: [
               .init(role: .system, content: .text(systemMessage)),
               .init(role: .user, content: content),
               .init(role: .user, content: .text(predictedCode)),
             ], // Sending the predicted code as another user message.
-            model: .gpt4o,
+            model: model,
             prediction: .init(content: .text(predictedCode)))
           try await chatProvider.startChat(parameters: parameters)
         }
@@ -79,7 +88,6 @@ struct ChatPredictedOutputDemoView: View {
   @State private var chatProvider: ChatProvider
   @State private var isLoading = false
   @State private var prompt = ""
-
 }
 
 let systemMessage = """

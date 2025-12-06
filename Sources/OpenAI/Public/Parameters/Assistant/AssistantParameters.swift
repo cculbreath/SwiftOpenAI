@@ -1,5 +1,5 @@
 //
-//  CreateAssistantParameters.swift
+//  AssistantParameters.swift
 //
 //
 //  Created by James Rochabrun on 11/15/23.
@@ -10,7 +10,6 @@ import Foundation
 /// Create an [assistant](https://platform.openai.com/docs/api-reference/assistants/createAssistant) with a model and instructions.
 /// Modifies an [assistant](https://platform.openai.com/docs/api-reference/assistants/modifyAssistant).
 public struct AssistantParameters: Encodable {
-
   public init(
     action: Action? = nil,
     name: String? = nil,
@@ -56,7 +55,7 @@ public struct AssistantParameters: Encodable {
   /// The system instructions that the assistant uses. The maximum length is 32768 characters.
   public var instructions: String?
   /// A list of tool enabled on the assistant. There can be a maximum of 128 tools per assistant. Tools can be of types code_interpreter, retrieval, or function. Defaults to []
-  public var tools: [AssistantObject.Tool] = []
+  public var tools = [AssistantObject.Tool]()
   /// A set of resources that are used by the assistant's tools. The resources are specific to the type of tool. For example, the code_interpreter tool requires a list of file IDs, while the file_search tool requires a list of vector store IDs.
   public var toolResources: ToolResources?
   /// Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format. Keys can be a maximum of 64 characters long and values can be a maxium of 512 characters long.
@@ -121,5 +120,4 @@ public struct AssistantParameters: Encodable {
     case responseFormat = "response_format"
     case toolResources = "tool_resources"
   }
-
 }

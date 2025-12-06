@@ -10,7 +10,6 @@ import Foundation
 // MARK: - AzureOpenAIAPI
 
 enum AzureOpenAIAPI {
-
   /// https://learn.microsoft.com/en-us/azure/ai-services/openai/assistants-reference?tabs=python
   /// https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/assistant
   case assistant(AssistantCategory)
@@ -95,7 +94,6 @@ enum AzureOpenAIAPI {
 // MARK: Endpoint
 
 extension AzureOpenAIAPI: Endpoint {
-
   func path(in _: OpenAIEnvironment) -> String {
     switch self {
     case .chat(let deploymentID): "/openai/deployments/\(deploymentID)/chat/completions"

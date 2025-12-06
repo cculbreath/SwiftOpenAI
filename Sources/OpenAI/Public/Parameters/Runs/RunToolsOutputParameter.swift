@@ -9,7 +9,6 @@ import Foundation
 
 /// When a run has the status: "requires_action" and required_action.type is submit_tool_outputs, this endpoint can be used to submit the [outputs](https://platform.openai.com/docs/api-reference/runs/submitToolOutputs) from the tool calls once they're all completed. All outputs must be submitted in a single request.
 public struct RunToolsOutputParameter: Encodable {
-
   public init(
     toolOutputs: [ToolOutput])
   {
@@ -17,7 +16,6 @@ public struct RunToolsOutputParameter: Encodable {
   }
 
   public struct ToolOutput: Encodable {
-
     /// The ID of the tool call in the `required_action` object within the run object the output is being submitted for.
     public let toolCallId: String?
     /// The output of the tool call to be submitted to continue the run.
@@ -46,5 +44,4 @@ public struct RunToolsOutputParameter: Encodable {
     case toolOutputs = "tool_outputs"
     case stream
   }
-
 }

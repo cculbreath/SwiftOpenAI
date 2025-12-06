@@ -10,12 +10,11 @@ import SwiftUI
 
 @Observable
 class EmbeddingsProvider {
-
   init(service: OpenAIService) {
     self.service = service
   }
 
-  var embeddings: [EmbeddingObject] = []
+  var embeddings = [EmbeddingObject]()
 
   func createEmbeddings(
     parameters: EmbeddingParameter)
@@ -25,5 +24,4 @@ class EmbeddingsProvider {
   }
 
   private let service: OpenAIService
-
 }

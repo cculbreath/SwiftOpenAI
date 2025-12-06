@@ -10,7 +10,6 @@ import Foundation
 // MARK: - MultipartFormDataBuilder
 
 struct MultipartFormDataBuilder {
-
   let boundary: String
   let entries: [MultipartFormDataEntry]
 
@@ -34,7 +33,6 @@ struct MultipartFormDataBuilder {
 // MARK: - MultipartFormDataEntry
 
 enum MultipartFormDataEntry {
-
   case file(paramName: String, fileName: String?, fileData: Data, contentType: String)
   case string(paramName: String, value: Any?)
 }
@@ -42,7 +40,6 @@ enum MultipartFormDataEntry {
 // MARK: MultipartFormDataEntry+Data
 
 extension MultipartFormDataEntry {
-
   func makeData(boundary: String) -> Data {
     var body = Data()
     switch self {
@@ -69,7 +66,6 @@ extension MultipartFormDataEntry {
 }
 
 extension Data {
-
   fileprivate mutating func append(_ string: String) {
     let data = string.data(
       using: String.Encoding.utf8,

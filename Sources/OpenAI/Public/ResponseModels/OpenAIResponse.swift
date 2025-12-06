@@ -31,9 +31,7 @@ import Foundation
 /// }
 /// }
 public struct OpenAIResponse<T: Decodable>: Decodable {
-
   public struct Usage: Decodable {
-
     public let promptTokens: Int
     public let totalTokens: Int
 

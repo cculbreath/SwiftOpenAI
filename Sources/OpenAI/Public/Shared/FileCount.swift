@@ -8,7 +8,6 @@
 import Foundation
 
 public struct FileCount: Decodable {
-
   /// The number of files that are currently being processed.
   let inProgress: Int
   /// The number of files that have been successfully processed.

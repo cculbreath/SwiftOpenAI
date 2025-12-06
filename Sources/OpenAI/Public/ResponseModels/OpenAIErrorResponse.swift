@@ -17,7 +17,6 @@ import Foundation
 // }
 
 public struct OpenAIErrorResponse: Decodable {
-
   public let error: Error
 
   public struct Error: Decodable {

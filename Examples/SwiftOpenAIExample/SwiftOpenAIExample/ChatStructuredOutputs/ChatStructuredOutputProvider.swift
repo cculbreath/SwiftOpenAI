@@ -12,15 +12,17 @@ import SwiftOpenAI
 
 @Observable
 final class ChatStructuredOutputProvider {
+  init(service: OpenAIService, customModel: String? = nil) {
+    self.service = service
+    self.customModel = customModel
+  }
 
   // MARK: - Initializer
 
-  init(service: OpenAIService) {
-    self.service = service
-  }
+  let customModel: String?
 
   var message = ""
-  var messages: [String] = []
+  var messages = [String]()
   var errorMessage = ""
 
   // MARK: - Public Methods
@@ -69,13 +71,11 @@ final class ChatStructuredOutputProvider {
   }
 
   private let service: OpenAIService
-  private var streamTask: Task<Void, Never>? = nil
-
+  private var streamTask: Task<Void, Never>?
 }
 
 /// Helper that allows to display the JSON Schema.
 extension String {
-
   func asJsonFormatted() -> String {
     guard let data = data(using: .utf8) else { return self }
     do {

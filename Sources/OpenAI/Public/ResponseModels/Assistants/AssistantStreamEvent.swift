@@ -9,7 +9,6 @@ import Foundation
 
 /// A model that helps retrieve an object from an event.
 public enum AssistantStreamEvent {
-
   /// Occurs when a new thread is created.
   /// - data is a thread
   case threadCreated
@@ -105,5 +104,4 @@ public enum AssistantStreamEvent {
   /// Occurs when a stream ends.
   /// - data is [DONE]
   case done
-
 }

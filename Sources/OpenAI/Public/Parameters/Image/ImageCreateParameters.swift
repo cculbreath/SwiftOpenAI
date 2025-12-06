@@ -9,7 +9,6 @@ import Foundation
 
 /// [Creates an image given a prompt.](https://platform.openai.com/docs/api-reference/images/create)
 public struct ImageCreateParameters: Encodable {
-
   public init(
     prompt: String,
     model: Dalle,
@@ -67,5 +66,4 @@ public struct ImageCreateParameters: Encodable {
   let style: String?
   /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](https://platform.openai.com/docs/guides/safety-best-practices)
   let user: String?
-
 }

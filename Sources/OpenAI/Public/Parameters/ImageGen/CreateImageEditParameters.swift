@@ -11,7 +11,7 @@ import Foundation
 /// Creates an edited or extended image given one or more source images and a prompt.
 /// This endpoint only supports `gpt-image-1` and `dall-e-2`.
 public struct CreateImageEditParameters: Encodable {
-
+  #if canImport(UIKit) || canImport(AppKit)
   /// Creates parameters for editing a single image (compatible with both dall-e-2 and gpt-image-1)
   /// - Parameters:
   ///   - image: The image to edit
@@ -42,19 +42,20 @@ public struct CreateImageEditParameters: Encodable {
     let maskData = mask?.tiffRepresentation
     #endif
 
-    if imageData == nil {
-      assertionFailure("Failed to get image data")
+    guard let imageData else {
+      fatalError("Failed to get image data")
     }
 
-    self.image = [imageData!]
-    self.prompt = prompt
-    self.mask = maskData
-    self.model = model.rawValue
-    n = numberOfImages
-    self.quality = quality?.rawValue
-    self.responseFormat = responseFormat?.rawValue
-    self.size = size
-    self.user = user
+    self.init(
+      imageData: [imageData],
+      prompt: prompt,
+      maskData: maskData,
+      model: model,
+      numberOfImages: numberOfImages,
+      quality: quality,
+      responseFormat: responseFormat,
+      size: size,
+      user: user)
   }
 
   /// Creates parameters for editing multiple images (for gpt-image-1 only)
@@ -75,7 +76,7 @@ public struct CreateImageEditParameters: Encodable {
     size: String? = nil,
     user: String? = nil)
   {
-    var imageDataArray: [Data] = []
+    var imageDataArray = [Data]()
 
     for image in images {
       #if canImport(UIKit)
@@ -99,16 +100,18 @@ public struct CreateImageEditParameters: Encodable {
     let maskData = mask?.tiffRepresentation
     #endif
 
-    image = imageDataArray
-    self.prompt = prompt
-    self.mask = maskData
-    model = ModelType.gptImage1.rawValue
-    n = numberOfImages
-    self.quality = quality?.rawValue
-    responseFormat = nil // Not needed for gpt-image-1
-    self.size = size
-    self.user = user
+    self.init(
+      imageData: imageDataArray,
+      prompt: prompt,
+      maskData: maskData,
+      model: .gptImage1,
+      numberOfImages: numberOfImages,
+      quality: quality,
+      responseFormat: nil, // Not needed for gpt-image-1
+      size: size,
+      user: user)
   }
+  #endif
 
   /// Creates parameters from raw data (for advanced use cases)
   /// - Parameters:
@@ -214,15 +217,13 @@ public struct CreateImageEditParameters: Encodable {
 
   /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
   let user: String?
-
 }
 
 // MARK: MultipartFormDataParameters
 
 extension CreateImageEditParameters: MultipartFormDataParameters {
-
   public func encode(boundary: String) -> Data {
-    var entries: [MultipartFormDataEntry] = []
+    var entries = [MultipartFormDataEntry]()
 
     // Add images (possibly multiple for gpt-image-1)
     for (index, imageData) in image.enumerated() {

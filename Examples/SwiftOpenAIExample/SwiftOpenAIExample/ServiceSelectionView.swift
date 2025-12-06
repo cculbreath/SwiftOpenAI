@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct ServiceSelectionView: View {
-
   var body: some View {
     NavigationStack {
       List {

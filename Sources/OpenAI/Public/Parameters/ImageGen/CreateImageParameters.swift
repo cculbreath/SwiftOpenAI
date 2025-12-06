@@ -10,7 +10,6 @@ import Foundation
 /// 'Create Image':
 /// https://platform.openai.com/docs/api-reference/images/create
 public struct CreateImageParameters: Encodable {
-
   /// Creates a new instance of CreateImageParameters
   /// - Parameters:
   ///   - prompt: A text description of the desired image(s)
@@ -181,5 +180,4 @@ public struct CreateImageParameters: Encodable {
     case style
     case user
   }
-
 }

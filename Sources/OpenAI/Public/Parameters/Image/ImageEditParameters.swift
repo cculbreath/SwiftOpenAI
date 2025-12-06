@@ -8,9 +8,11 @@
 import Foundation
 #if canImport(UIKit)
 import UIKit
+
 public typealias PlatformImage = UIImage
 #elseif canImport(AppKit)
 import AppKit
+
 public typealias PlatformImage = NSImage
 #endif
 
@@ -18,7 +20,7 @@ public typealias PlatformImage = NSImage
 
 /// [Creates an edited or extended image given an original image and a prompt.](https://platform.openai.com/docs/api-reference/images/createEdit)
 public struct ImageEditParameters: Encodable {
-
+  #if canImport(UIKit) || canImport(AppKit)
   public init(
     image: PlatformImage,
     model: Dalle? = nil,
@@ -36,16 +38,46 @@ public struct ImageEditParameters: Encodable {
     let maskData = mask?.tiffRepresentation
     #endif
 
-    if imageData == nil {
-      assertionFailure("Failed to get image data")
-    }
-    if maskData == nil {
-      assertionFailure("Failed to get mask data")
+    guard let imageData else {
+      fatalError("Failed to get image data")
     }
 
-    self.image = imageData!
+    if mask != nil, maskData == nil {
+      fatalError("Failed to get mask data")
+    }
+
+    self.init(
+      imageData: imageData,
+      maskData: maskData,
+      model: model,
+      prompt: prompt,
+      numberOfImages: numberOfImages,
+      responseFormat: responseFormat,
+      user: user)
+  }
+  #endif
+
+  /// Creates parameters from raw data (for platforms without UIKit/AppKit support)
+  /// - Parameters:
+  ///   - imageData: Raw image data
+  ///   - maskData: Optional raw mask data
+  ///   - model: The model to use
+  ///   - prompt: A text description of the desired image
+  ///   - numberOfImages: Number of images to generate
+  ///   - responseFormat: Format of the response
+  ///   - user: User identifier
+  public init(
+    imageData: Data,
+    maskData: Data? = nil,
+    model: Dalle? = nil,
+    prompt: String,
+    numberOfImages: Int? = nil,
+    responseFormat: ImageResponseFormat? = nil,
+    user: String? = nil)
+  {
+    image = imageData
     self.model = model?.model
-    self.mask = maskData
+    mask = maskData
     self.prompt = prompt
     n = numberOfImages
     size = model?.size
@@ -85,13 +117,11 @@ public struct ImageEditParameters: Encodable {
   let responseFormat: String?
   /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](https://platform.openai.com/docs/guides/safety-best-practices)
   let user: String?
-
 }
 
 // MARK: MultipartFormDataParameters
 
 extension ImageEditParameters: MultipartFormDataParameters {
-
   public func encode(boundary: String) -> Data {
     MultipartFormDataBuilder(boundary: boundary, entries: [
       .file(paramName: Self.CodingKeys.image.rawValue, fileName: "", fileData: image, contentType: "image/png"),

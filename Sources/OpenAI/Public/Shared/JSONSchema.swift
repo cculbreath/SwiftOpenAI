@@ -108,7 +108,6 @@ public enum JSONSchemaType: Codable, Equatable {
 // MARK: - JSONSchema
 
 public class JSONSchema: Codable, Equatable {
-
   public init(
     type: JSONSchemaType? = nil,
     description: String? = nil,

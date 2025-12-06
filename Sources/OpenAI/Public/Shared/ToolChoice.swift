@@ -80,5 +80,4 @@ public enum ToolChoice: Codable, Equatable {
   enum FunctionCodingKeys: String, CodingKey {
     case name
   }
-
 }

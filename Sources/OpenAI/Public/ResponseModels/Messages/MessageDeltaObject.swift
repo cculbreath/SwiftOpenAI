@@ -11,13 +11,11 @@ import Foundation
 ///
 /// Represents a message delta i.e. any changed fields on a message during streaming.
 public struct MessageDeltaObject: Delta {
-
   public struct Delta: Decodable {
-
     /// The entity that produced the message. One of user or assistant.
     public let role: String?
     /// The content of the message in array of text and/or images.
-    public let content: [MessageContent]
+    public let content: [AssistantMessageContent]
 
     enum Role: String {
       case user
@@ -36,5 +34,4 @@ public struct MessageDeltaObject: Delta {
   public let object: String
   /// The delta containing the fields that have changed on the Message.
   public let delta: Delta
-
 }

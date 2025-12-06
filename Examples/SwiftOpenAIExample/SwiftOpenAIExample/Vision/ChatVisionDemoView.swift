@@ -10,10 +10,12 @@ import SwiftOpenAI
 import SwiftUI
 
 struct ChatVisionDemoView: View {
-
-  init(service: OpenAIService) {
-    _chatProvider = State(initialValue: ChatVisionProvider(service: service))
+  init(service: OpenAIService, customModel: String? = nil) {
+    self.customModel = customModel
+    _chatProvider = State(initialValue: ChatVisionProvider(service: service, customModel: customModel))
   }
+
+  let customModel: String?
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -79,9 +81,16 @@ struct ChatVisionDemoView: View {
           .text(prompt),
         ] + selectedImageURLS.map { .imageUrl(.init(url: $0)) }
         resetInput()
+        let model: Model =
+          if let customModel, !customModel.isEmpty {
+            .custom(customModel)
+          } else {
+            .gpt4o
+          }
+
         try await chatProvider.startStreamedChat(parameters: .init(
           messages: [.init(role: .user, content: .contentArray(content))],
-          model: .gpt4o, maxTokens: 300), content: content)
+          model: model, maxTokens: 300), content: content)
       }
     } label: {
       Image(systemName: "paperplane")
@@ -114,7 +123,7 @@ struct ChatVisionDemoView: View {
 
   var selectedImagesView: some View {
     HStack(spacing: 0) {
-      ForEach(0..<selectedImages.count, id: \.self) { i in
+      ForEach(0 ..< selectedImages.count, id: \.self) { i in
         selectedImages[i]
           .resizable()
           .frame(width: 60, height: 60)
@@ -127,9 +136,9 @@ struct ChatVisionDemoView: View {
   @State private var chatProvider: ChatVisionProvider
   @State private var isLoading = false
   @State private var prompt = ""
-  @State private var selectedItems: [PhotosPickerItem] = []
-  @State private var selectedImages: [Image] = []
-  @State private var selectedImageURLS: [URL] = []
+  @State private var selectedItems = [PhotosPickerItem]()
+  @State private var selectedImages = [Image]()
+  @State private var selectedImageURLS = [URL]()
 
   /// Called when the user taps on the send button. Clears the selected images and prompt.
   private func resetInput() {

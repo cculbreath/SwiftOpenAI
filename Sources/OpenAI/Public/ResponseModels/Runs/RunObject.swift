@@ -12,7 +12,6 @@ import Foundation
 /// Related guide: [Assistants](https://platform.openai.com/docs/assistants/overview)
 /// [Run Object](https://platform.openai.com/docs/api-reference/runs/object)
 public struct RunObject: Decodable {
-
   public enum Status: String {
     case queued
     case inProgress = "in_progress"
@@ -25,7 +24,6 @@ public struct RunObject: Decodable {
   }
 
   public struct RequiredAction: Decodable {
-
     public struct SubmitToolOutput: Decodable {
       /// A list of the relevant tool calls.
       /// - Object: ToolCall

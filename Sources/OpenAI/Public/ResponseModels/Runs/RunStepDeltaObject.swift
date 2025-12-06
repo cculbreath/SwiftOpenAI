@@ -9,7 +9,6 @@ import Foundation
 
 /// Represents a [run step delta](https://platform.openai.com/docs/api-reference/assistants-streaming/run-step-delta-object) i.e. any changed fields on a run step during streaming.
 public struct RunStepDeltaObject: Delta {
-
   /// The identifier of the run step, which can be referenced in API endpoints.
   public let id: String
   /// The object type, which is always thread.run.step.delta.
@@ -18,7 +17,6 @@ public struct RunStepDeltaObject: Delta {
   public let delta: Delta
 
   public struct Delta: Decodable {
-
     /// The details of the run step.
     public let stepDetails: RunStepDetails
 

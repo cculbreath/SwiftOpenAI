@@ -11,7 +11,6 @@ import Foundation
 
 /// Translates audio into English. [Create translation](https://platform.openai.com/docs/api-reference/audio/createTranslation).
 public struct AudioTranslationParameters: Encodable {
-
   public init(
     fileName: String,
     file: Data,
@@ -62,13 +61,11 @@ public struct AudioTranslationParameters: Encodable {
   let responseFormat: String?
   /// The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. If set to 0, the model will use [log probability](https://en.wikipedia.org/wiki/Log_probability) to automatically increase the temperature until certain thresholds are hit. Defaults to 0
   let temperature: Double?
-
 }
 
 // MARK: MultipartFormDataParameters
 
 extension AudioTranslationParameters: MultipartFormDataParameters {
-
   public func encode(boundary: String) -> Data {
     MultipartFormDataBuilder(boundary: boundary, entries: [
       .file(paramName: Self.CodingKeys.file.rawValue, fileName: fileName, fileData: file, contentType: "audio/mpeg"),

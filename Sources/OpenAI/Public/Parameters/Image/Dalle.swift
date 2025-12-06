@@ -6,6 +6,7 @@
 //
 
 import Foundation
+
 /// [DALL·E](https://platform.openai.com/docs/models/dall-e)
 ///
 /// DALL·E is a AI system that can create realistic images and art from a description in natural language. DALL·E 3 currently supports the ability, given a prompt, to create a new image with a specific size. DALL·E 2 also support the ability to edit an existing image, or create variations of a user provided image.
@@ -21,7 +22,6 @@ import Foundation
 /// |           | The 2nd iteration of DALL·E with more realistic, accurate,   |
 /// |           | and 4x greater resolution images than the original model.    |
 public enum Dalle {
-
   case dalle2(Dalle2ImageSize)
   case dalle3(Dalle3ImageSize)
 

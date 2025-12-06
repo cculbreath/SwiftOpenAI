@@ -112,15 +112,17 @@ let responseFormatSchema = JSONSchemaResponseFormat(
 // )
 
 struct ChatStructuredOutputDemoView: View {
-
-  init(service: OpenAIService) {
-    _chatProvider = State(initialValue: ChatStructuredOutputProvider(service: service))
+  init(service: OpenAIService, customModel: String? = nil) {
+    self.customModel = customModel
+    _chatProvider = State(initialValue: ChatStructuredOutputProvider(service: service, customModel: customModel))
   }
 
   enum ChatConfig {
     case chatCompletion
     case chatCompeltionStream
   }
+
+  let customModel: String?
 
   var body: some View {
     ScrollView {
@@ -215,5 +217,4 @@ struct ChatStructuredOutputDemoView: View {
   @State private var isLoading = false
   @State private var prompt = ""
   @State private var selectedSegment = ChatConfig.chatCompeltionStream
-
 }

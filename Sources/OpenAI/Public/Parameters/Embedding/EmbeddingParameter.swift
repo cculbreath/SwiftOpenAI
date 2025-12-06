@@ -9,7 +9,6 @@ import Foundation
 
 /// [Creates](https://platform.openai.com/docs/api-reference/embeddings/create) an embedding vector representing the input text.
 public struct EmbeddingParameter: Encodable {
-
   public init(
     input: String,
     model: Model = .textEmbeddingAda002,
@@ -49,5 +48,4 @@ public struct EmbeddingParameter: Encodable {
   let dimensions: Int?
   /// A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more.](https://platform.openai.com/docs/guides/safety-best-practices/end-user-ids)
   let user: String?
-
 }

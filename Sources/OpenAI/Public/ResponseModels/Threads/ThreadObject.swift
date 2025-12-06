@@ -10,7 +10,6 @@ import Foundation
 /// BETA
 /// A [thread object](https://platform.openai.com/docs/api-reference/threads) represents a thread that contains [messages](https://platform.openai.com/docs/api-reference/messages).
 public struct ThreadObject: Decodable {
-
   public init(
     id: String,
     object: String,
@@ -41,5 +40,4 @@ public struct ThreadObject: Decodable {
     case toolResources = "tool_resources"
     case metadata
   }
-
 }

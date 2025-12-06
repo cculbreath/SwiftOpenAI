@@ -9,7 +9,6 @@ import Foundation
 
 /// Represents a [step](https://platform.openai.com/docs/api-reference/runs/step-object) in execution of a run.
 public struct RunStepObject: Codable {
-
   public init(
     id: String,
     object: String,
@@ -131,5 +130,4 @@ public struct RunStepObject: Codable {
     case metadata
     case usage
   }
-
 }

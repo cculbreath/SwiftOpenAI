@@ -8,14 +8,11 @@
 import Foundation
 
 public struct BatchObject: Decodable {
-
   public struct Error: Decodable {
-
     let object: String
     let data: [Data]
 
     public struct Data: Decodable {
-
       /// An error code identifying the error type.
       let code: String
       /// A human-readable message providing more details about the error.
@@ -28,7 +25,6 @@ public struct BatchObject: Decodable {
   }
 
   public struct RequestCount: Decodable {
-
     /// Total number of requests in the batch.
     let total: Int
     /// Number of requests that have been completed successfully.
@@ -99,5 +95,4 @@ public struct BatchObject: Decodable {
   let requestCounts: RequestCount
   /// Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format. Keys can be a maximum of 64 characters long and values can be a maxium of 512 characters long.
   let metadata: [String: String]
-
 }

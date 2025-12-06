@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  BatchParameter.swift
 //
 //
 //  Created by James Rochabrun on 4/27/24.
@@ -9,7 +9,6 @@ import Foundation
 
 /// [Create large batches of API requests for asynchronous processing. The Batch API returns completions within 24 hours for a 50% discount.](https://platform.openai.com/docs/api-reference/batch/create)
 public struct BatchParameter: Encodable {
-
   /// The ID of an uploaded file that contains requests for the new batch.
   /// See [upload file](https://platform.openai.com/docs/api-reference/files/create) for how to upload a file.
   /// Your input file must be formatted as a [JSONL file](https://platform.openai.com/docs/api-reference/batch/requestInput), and must be uploaded with the purpose batch.

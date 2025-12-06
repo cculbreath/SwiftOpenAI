@@ -2,6 +2,9 @@
 <img width="1090" alt="repoOpenAI" src="https://github.com/jamesrochabrun/SwiftOpenAI/assets/5378604/51bc5736-a32f-4a9f-922e-209d950e28f7">
 
 ![iOS 15+](https://img.shields.io/badge/iOS-15%2B-blue.svg)
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue.svg)
+![watchOS 9+](https://img.shields.io/badge/watchOS-9%2B-blue.svg)
+![Linux](https://img.shields.io/badge/Linux-blue.svg)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
 [![swift-version](https://img.shields.io/badge/swift-5.9-brightgreen.svg)](https://github.com/apple/swift)
 [![swiftui-version](https://img.shields.io/badge/swiftui-brightgreen)](https://developer.apple.com/documentation/swiftui)
@@ -10,6 +13,8 @@
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-048754?logo=buymeacoffee)](https://buymeacoffee.com/jamesrochabrun)
 
 An open-source Swift package designed for effortless interaction with OpenAI's public API. 
+
+🚀 Now also available as [CLI](https://github.com/jamesrochabrun/SwiftOpenAICLI) and also as [MCP](https://github.com/jamesrochabrun/SwiftOpenAIMCP)
 
 ## Table of Contents
 - [Description](#description)
@@ -21,7 +26,7 @@ An open-source Swift package designed for effortless interaction with OpenAI's p
 
 ## Description
 
-`SwiftOpenAI` is an open-source Swift package that streamlines interactions with **all** OpenAI's API endpoints, now with added support for Azure, AIProxy, and Assistant stream APIs.
+`SwiftOpenAI` is an open-source Swift package that streamlines interactions with **all** OpenAI's API endpoints, now with added support for Azure, AIProxy, Assistant stream APIs, and the new **Realtime API** for low-latency bidirectional voice conversations.
 
 ### OpenAI ENDPOINTS
 
@@ -29,11 +34,13 @@ An open-source Swift package designed for effortless interaction with OpenAI's p
    - [Transcriptions](#audio-transcriptions)
    - [Translations](#audio-translations)
    - [Speech](#audio-Speech)
+   - [Realtime](#audio-realtime)
 - [Chat](#chat)
    - [Function Calling](#function-calling)
    - [Structured Outputs](#structured-outputs)
    - [Vision](#vision)
 - [Response](#response)
+   - [Streaming Responses](#streaming-responses)
 - [Embeddings](#embeddings)
 - [Fine-tuning](#fine-tuning)
 - [Batch](#batch)
@@ -99,6 +106,14 @@ to stay on the bleeding edge.
 
 ## Compatibility
 
+### Platform Support
+
+SwiftOpenAI supports both Apple platforms and Linux.
+- **Apple platforms** include iOS 15+, macOS 13+, and watchOS 9+.
+- **Linux**: SwiftOpenAI on Linux uses AsyncHTTPClient to work around URLSession bugs in Apple's Foundation framework, and can be used with the [Vapor](https://vapor.codes/) server framework.
+
+### OpenAI-Compatible Providers
+
 SwiftOpenAI supports various providers that are OpenAI-compatible, including but not limited to:
 
 - [Azure OpenAI](#azure-openai)
@@ -106,6 +121,7 @@ SwiftOpenAI supports various providers that are OpenAI-compatible, including but
 - [Gemini](#gemini)
 - [Ollama](#ollama)
 - [Groq](#groq)
+- [xAI](#xai)
 - [OpenRouter](#openRouter)
 - [DeepSeek](#deepseek)
 - [AIProxy](#aiproxy)
@@ -144,9 +160,10 @@ To configure it:
 ```swift
 let apiKey = "your_openai_api_key_here"
 let organizationID = "your_organization_id"
-let configuration = URLSessionConfiguration.default
-configuration.timeoutIntervalForRequest = 360 // e.g., 360 seconds or more.
-let service = OpenAIServiceFactory.service(apiKey: apiKey, organizationID: organizationID, configuration: configuration)
+let session = URLSession.shared
+session.configuration.timeoutIntervalForRequest = 360 // e.g., 360 seconds or more.
+let httpClient = URLSessionHTTPClientAdapter(urlSession: session)
+let service = OpenAIServiceFactory.service(apiKey: apiKey, organizationID: organizationID, httpClient: httpClient)
 ```
 
 That's all you need to begin accessing the full range of OpenAI endpoints.
@@ -379,6 +396,290 @@ playAudio(from: audioObjectData)
    }
 ```
 
+### Audio Realtime
+
+The [Realtime API](https://platform.openai.com/docs/api-reference/realtime) enables bidirectional voice conversations with OpenAI's models using WebSockets and low-latency audio streaming. The API supports both audio-to-audio and text-to-audio interactions with built-in voice activity detection, transcription, and function calling.
+
+**Platform Requirements:** iOS 15+, macOS 13+, watchOS 9+. Requires AVFoundation (not available on Linux).
+
+**Permissions Required:**
+- Add `NSMicrophoneUsageDescription` to your Info.plist
+- On macOS: Enable sandbox entitlements for microphone access and outgoing network connections
+
+Parameters
+```swift
+/// Configuration for creating a realtime session
+public struct OpenAIRealtimeSessionConfiguration: Encodable, Sendable {
+
+   /// The input audio format. Options: .pcm16, .g711_ulaw, .g711_alaw. Default is .pcm16
+   let inputAudioFormat: AudioFormat?
+   /// Configuration for input audio transcription using Whisper
+   let inputAudioTranscription: InputAudioTranscription?
+   /// System instructions for the model. Recommended default provided
+   let instructions: String?
+   /// Maximum tokens for response output. Can be .value(Int) or .infinite
+   let maxResponseOutputTokens: MaxResponseOutputTokens?
+   /// Output modalities: [.audio, .text] or [.text] only. Default is [.audio, .text]
+   let modalities: [Modality]?
+   /// The output audio format. Options: .pcm16, .g711_ulaw, .g711_alaw. Default is .pcm16
+   let outputAudioFormat: AudioFormat?
+   /// Audio playback speed. Range: 0.25 to 4.0. Default is 1.0
+   let speed: Double?
+   /// Sampling temperature for model responses. Range: 0.6 to 1.2. Default is 0.8
+   let temperature: Double?
+   /// Array of tools/functions available for the model to call
+   let tools: [Tool]?
+   /// Tool selection mode: .none, .auto, .required, or .specific(functionName: String)
+   let toolChoice: ToolChoice?
+   /// Voice activity detection configuration. Options: .serverVAD or .semanticVAD
+   let turnDetection: TurnDetection?
+   /// The voice to use. Options: "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"
+   let voice: String?
+
+   /// Available audio formats
+   public enum AudioFormat: String, Encodable, Sendable {
+      case pcm16
+      case g711_ulaw = "g711-ulaw"
+      case g711_alaw = "g711-alaw"
+   }
+
+   /// Output modalities
+   public enum Modality: String, Encodable, Sendable {
+      case audio
+      case text
+   }
+
+   /// Turn detection configuration
+   public struct TurnDetection: Encodable, Sendable {
+      /// Server-based VAD with customizable timing
+      public static func serverVAD(
+         prefixPaddingMs: Int = 300,
+         silenceDurationMs: Int = 500,
+         threshold: Double = 0.5
+      ) -> TurnDetection
+
+      /// Semantic VAD with eagerness level
+      public static func semanticVAD(eagerness: Eagerness = .medium) -> TurnDetection
+
+      public enum Eagerness: String, Encodable, Sendable {
+         case low, medium, high
+      }
+   }
+}
+```
+
+Response
+```swift
+/// Messages received from the realtime API
+public enum OpenAIRealtimeMessage: Sendable {
+   case error(String?)                    // Error occurred
+   case sessionCreated                    // Session successfully created
+   case sessionUpdated                    // Configuration updated
+   case responseCreated                   // Model started generating response
+   case responseAudioDelta(String)        // Audio chunk (base64 PCM16)
+   case inputAudioBufferSpeechStarted     // User started speaking (VAD detected)
+   case responseFunctionCallArgumentsDone(name: String, arguments: String, callId: String)
+   case responseTranscriptDelta(String)   // Partial AI transcript
+   case responseTranscriptDone(String)    // Complete AI transcript
+   case inputAudioBufferTranscript(String)           // User audio transcript
+   case inputAudioTranscriptionDelta(String)         // Partial user transcription
+   case inputAudioTranscriptionCompleted(String)     // Complete user transcription
+}
+```
+
+Supporting Types
+```swift
+/// Manages microphone input and audio playback for realtime conversations.
+/// Audio played through AudioController does not interfere with mic input (the model won't hear itself).
+@RealtimeActor
+public final class AudioController {
+
+   /// Initialize with specified modes
+   /// - Parameter modes: Array of .record (for microphone) and/or .playback (for audio output)
+   public init(modes: [Mode]) async throws
+
+   public enum Mode {
+      case record   // Enable microphone streaming
+      case playback // Enable audio playback
+   }
+
+   /// Returns an AsyncStream of microphone audio buffers
+   /// - Throws: OpenAIError if .record mode wasn't enabled during initialization
+   public func micStream() throws -> AsyncStream<AVAudioPCMBuffer>
+
+   /// Plays base64-encoded PCM16 audio from the model
+   /// - Parameter base64String: Base64-encoded PCM16 audio data
+   public func playPCM16Audio(base64String: String)
+
+   /// Interrupts current audio playback (useful when user starts speaking)
+   public func interruptPlayback()
+
+   /// Stops all audio operations
+   public func stop()
+}
+
+/// Utility for encoding audio buffers to base64
+public enum AudioUtils {
+   /// Converts AVAudioPCMBuffer to base64 string for transmission
+   public static func base64EncodeAudioPCMBuffer(from buffer: AVAudioPCMBuffer) -> String?
+
+   /// Checks if headphones are connected
+   public static var headphonesConnected: Bool
+}
+```
+
+Usage
+```swift
+// 1. Create session configuration
+let configuration = OpenAIRealtimeSessionConfiguration(
+   voice: "alloy",
+   instructions: "You are a helpful AI assistant. Be concise and friendly.",
+   turnDetection: .serverVAD(
+      prefixPaddingMs: 300,
+      silenceDurationMs: 500,
+      threshold: 0.5
+   ),
+   inputAudioTranscription: .init(model: "whisper-1")
+)
+
+// 2. Create realtime session
+let session = try await service.realtimeSession(
+   model: "gpt-4o-mini-realtime-preview-2024-12-17",
+   configuration: configuration
+)
+
+// 3. Initialize audio controller for recording and playback
+let audioController = try await AudioController(modes: [.record, .playback])
+
+// 4. Handle incoming messages from OpenAI
+Task {
+   for await message in session.receiver {
+      switch message {
+      case .responseAudioDelta(let audio):
+         // Play audio from the model
+         audioController.playPCM16Audio(base64String: audio)
+
+      case .inputAudioBufferSpeechStarted:
+         // User started speaking - interrupt model's audio
+         audioController.interruptPlayback()
+
+      case .responseTranscriptDelta(let text):
+         // Display partial model transcript
+         print("Model (partial): \(text)")
+
+      case .responseTranscriptDone(let text):
+         // Display complete model transcript
+         print("Model: \(text)")
+
+      case .inputAudioTranscriptionCompleted(let text):
+         // Display user's transcribed speech
+         print("User: \(text)")
+
+      case .responseFunctionCallArgumentsDone(let name, let args, let callId):
+         // Handle function call from model
+         print("Function call: \(name) with args: \(args)")
+         // Execute function and send result back
+
+      case .error(let error):
+         print("Error: \(error ?? "Unknown error")")
+
+      default:
+         break
+      }
+   }
+}
+
+// 5. Stream microphone audio to OpenAI
+Task {
+   do {
+      for try await buffer in audioController.micStream() {
+         // Encode audio buffer to base64
+         guard let base64Audio = AudioUtils.base64EncodeAudioPCMBuffer(from: buffer) else {
+            continue
+         }
+
+         // Send audio to OpenAI
+         try await session.sendMessage(
+            OpenAIRealtimeInputAudioBufferAppend(audio: base64Audio)
+         )
+      }
+   } catch {
+      print("Microphone error: \(error)")
+   }
+}
+
+// 6. Manually trigger a response (optional - usually VAD handles this)
+try await session.sendMessage(
+   OpenAIRealtimeResponseCreate()
+)
+
+// 7. Update session configuration mid-conversation (optional)
+let newConfig = OpenAIRealtimeSessionConfiguration(
+   voice: "shimmer",
+   temperature: 0.9
+)
+try await session.sendMessage(
+   OpenAIRealtimeSessionUpdate(sessionConfig: newConfig)
+)
+
+// 8. Cleanup when done
+audioController.stop()
+session.disconnect()
+```
+
+Function Calling
+```swift
+// Define tools in configuration
+let tools: [OpenAIRealtimeSessionConfiguration.Tool] = [
+   .init(
+      name: "get_weather",
+      description: "Get the current weather in a location",
+      parameters: [
+         "type": "object",
+         "properties": [
+            "location": [
+               "type": "string",
+               "description": "City name, e.g. San Francisco"
+            ]
+         ],
+         "required": ["location"]
+      ]
+   )
+]
+
+let config = OpenAIRealtimeSessionConfiguration(
+   voice: "alloy",
+   tools: tools,
+   toolChoice: .auto
+)
+
+// Handle function calls in message receiver
+case .responseFunctionCallArgumentsDone(let name, let args, let callId):
+   if name == "get_weather" {
+      // Parse arguments and execute function
+      let result = getWeather(arguments: args)
+
+      // Send result back to model
+      try await session.sendMessage(
+         OpenAIRealtimeConversationItemCreate(
+            item: .functionCallOutput(
+               callId: callId,
+               output: result
+            )
+         )
+      )
+   }
+```
+
+Advanced Features
+- **Voice Activity Detection (VAD):** Choose between server-based VAD (with configurable timing) or semantic VAD (with eagerness levels)
+- **Transcription:** Enable Whisper transcription for both user input and model output
+- **Session Updates:** Change voice, instructions, or tools mid-conversation without reconnecting
+- **Response Triggers:** Manually trigger model responses or rely on automatic VAD
+- **Platform-Specific Behavior:** Automatically selects optimal audio API based on platform and headphone connection
+
+For a complete implementation example, see `Examples/RealtimeExample/RealtimeExample.swift` in the repository.
+
 ### Chat
 Parameters
 ```swift
@@ -387,6 +688,7 @@ public struct ChatCompletionParameters: Encodable {
    /// A list of messages comprising the conversation so far. [Example Python code](https://cookbook.openai.com/examples/how_to_format_inputs_to_chatgpt_models)
    public var messages: [Message]
    /// ID of the model to use. See the [model endpoint compatibility](https://platform.openai.com/docs/models/how-we-use-your-data) table for details on which models work with the Chat API.
+   /// Supports GPT-4, GPT-4o, GPT-5, and other models. For GPT-5 family: .gpt5, .gpt5Mini, .gpt5Nano
    public var model: String
    /// Whether or not to store the output of this chat completion request for use in our [model distillation](https://platform.openai.com/docs/guides/distillation) or [evals](https://platform.openai.com/docs/guides/evals) products.
    /// Defaults to false
@@ -1268,6 +1570,54 @@ For more details about how to also uploading base 64 encoded images in iOS check
 
 OpenAI's most advanced interface for generating model responses. Supports text and image inputs, and text outputs. Create stateful interactions with the model, using the output of previous responses as input. Extend the model's capabilities with built-in tools for file search, web search, computer use, and more. Allow the model access to external systems and data using function calling.
 
+- Full streaming support with `responseCreateStream` method
+- Comprehensive `ResponseStreamEvent` enum covering 40+ event types
+- Enhanced `InputMessage` with `id` field for response ID tracking
+- Improved conversation state management with `previousResponseId`
+- Real-time text streaming, function calls, and tool usage events
+- Support for reasoning summaries, web search, file search, and image generation events
+- **NEW**: Support for GPT-5 models (gpt-5, gpt-5-mini, gpt-5-nano)
+- **NEW**: Verbosity parameter for controlling response detail level
+
+#### ModelResponseParameter
+
+The `ModelResponseParameter` provides a comprehensive interface for creating model responses:
+
+```swift
+let parameters = ModelResponseParameter(
+    input: .text("What is the answer to life, the universe, and everything?"),
+    model: .gpt5,  // Support for GPT-5, GPT-5-mini, GPT-5-nano
+    text: TextConfiguration(
+        format: .text,
+        verbosity: "low"  // NEW: Control response verbosity ("low", "medium", "high")
+    ),
+    temperature: 0.7
+)
+
+let response = try await service.responseCreate(parameters)
+```
+
+#### Available GPT-5 Models
+
+```swift
+public enum Model {
+    case gpt5        // Complex reasoning, broad world knowledge, and code-heavy or multi-step agentic tasks
+    case gpt5Mini    // Cost-optimized reasoning and chat; balances speed, cost, and capability
+    case gpt5Nano    // High-throughput tasks, especially simple instruction-following or classification
+    // ... other models
+}
+```
+
+#### TextConfiguration with Verbosity
+
+```swift
+// Create a text configuration with verbosity control
+let textConfig = TextConfiguration(
+    format: .text,       // Can be .text, .jsonObject, or .jsonSchema
+    verbosity: "medium"  // Controls response detail level
+)
+```
+
 Related guides:
 
 - [Quickstart](https://platform.openai.com/docs/quickstart?api-mode=responses)
@@ -1442,6 +1792,38 @@ public struct ResponseModel: Decodable {
 }
 ```
 
+Input Types
+```swift
+// InputType represents the input to the Response API
+public enum InputType: Codable {
+    case string(String)  // Simple text input
+    case array([InputItem])  // Array of input items for complex conversations
+}
+
+// InputItem represents different types of input
+public enum InputItem: Codable {
+    case message(InputMessage)  // User, assistant, system messages
+    case functionToolCall(FunctionToolCall)  // Function calls
+    case functionToolCallOutput(FunctionToolCallOutput)  // Function outputs
+    // ... other input types
+}
+
+// InputMessage structure with support for response IDs
+public struct InputMessage: Codable {
+    public let role: String  // "user", "assistant", "system"
+    public let content: MessageContent
+    public let type: String?  // Always "message"
+    public let status: String?  // "completed" for assistant messages
+    public let id: String?  // Response ID for assistant messages
+}
+
+// MessageContent can be text or array of content items
+public enum MessageContent: Codable {
+    case text(String)
+    case array([ContentItem])  // For multimodal content
+}
+```
+
 Usage
 
 Simple text input
@@ -1556,6 +1938,293 @@ Retrieving a response
 ```swift
 let responseId = "resp_abc123"
 let response = try await service.responseModel(id: responseId)
+```
+
+#### Streaming Responses
+
+The Response API supports streaming responses using Server-Sent Events (SSE). This allows you to receive partial responses as they are generated, enabling real-time UI updates and better user experience.
+
+Stream Events
+```swift
+// The ResponseStreamEvent enum represents all possible streaming events
+public enum ResponseStreamEvent: Decodable {
+  case responseCreated(ResponseCreatedEvent)
+  case responseInProgress(ResponseInProgressEvent)
+  case responseCompleted(ResponseCompletedEvent)
+  case responseFailed(ResponseFailedEvent)
+  case outputItemAdded(OutputItemAddedEvent)
+  case outputTextDelta(OutputTextDeltaEvent)
+  case outputTextDone(OutputTextDoneEvent)
+  case functionCallArgumentsDelta(FunctionCallArgumentsDeltaEvent)
+  case reasoningSummaryTextDelta(ReasoningSummaryTextDeltaEvent)
+  case error(ErrorEvent)
+  // ... and many more event types
+}
+```
+
+Basic Streaming Example
+```swift
+// Enable streaming by setting stream: true
+let parameters = ModelResponseParameter(
+    input: .string("Tell me a story"),
+    model: .gpt4o,
+    stream: true
+)
+
+// Create a stream
+let stream = try await service.responseCreateStream(parameters)
+
+// Process events as they arrive
+for try await event in stream {
+    switch event {
+    case .outputTextDelta(let delta):
+        // Append text chunk to your UI
+        print(delta.delta, terminator: "")
+        
+    case .responseCompleted(let completed):
+        // Response is complete
+        print("\nResponse ID: \(completed.response.id)")
+        
+    case .error(let error):
+        // Handle errors
+        print("Error: \(error.message)")
+        
+    default:
+        // Handle other events as needed
+        break
+    }
+}
+```
+
+Streaming with Conversation State
+```swift
+// Maintain conversation continuity with previousResponseId
+var previousResponseId: String? = nil
+var messages: [(role: String, content: String)] = []
+
+// First message
+let firstParams = ModelResponseParameter(
+    input: .string("Hello!"),
+    model: .gpt4o,
+    stream: true
+)
+
+let firstStream = try await service.responseCreateStream(firstParams)
+var firstResponse = ""
+
+for try await event in firstStream {
+    switch event {
+    case .outputTextDelta(let delta):
+        firstResponse += delta.delta
+        
+    case .responseCompleted(let completed):
+        previousResponseId = completed.response.id
+        messages.append((role: "user", content: "Hello!"))
+        messages.append((role: "assistant", content: firstResponse))
+        
+    default:
+        break
+    }
+}
+
+// Follow-up message with conversation context
+var inputArray: [InputItem] = []
+
+// Add conversation history
+for message in messages {
+    inputArray.append(.message(InputMessage(
+        role: message.role,
+        content: .text(message.content)
+    )))
+}
+
+// Add new user message
+inputArray.append(.message(InputMessage(
+    role: "user",
+    content: .text("How are you?")
+)))
+
+let followUpParams = ModelResponseParameter(
+    input: .array(inputArray),
+    model: .gpt4o,
+    previousResponseId: previousResponseId,
+    stream: true
+)
+
+let followUpStream = try await service.responseCreateStream(followUpParams)
+// Process the follow-up stream...
+```
+
+Streaming with Tools and Function Calling
+```swift
+let parameters = ModelResponseParameter(
+    input: .string("What's the weather in San Francisco?"),
+    model: .gpt4o,
+    tools: [
+        Tool(
+            type: "function",
+            function: ChatCompletionParameters.ChatFunction(
+                name: "get_weather",
+                description: "Get current weather",
+                parameters: JSONSchema(
+                    type: .object,
+                    properties: [
+                        "location": JSONSchema(type: .string)
+                    ],
+                    required: ["location"]
+                )
+            )
+        )
+    ],
+    stream: true
+)
+
+let stream = try await service.responseCreateStream(parameters)
+var functionCallArguments = ""
+
+for try await event in stream {
+    switch event {
+    case .functionCallArgumentsDelta(let delta):
+        // Accumulate function call arguments
+        functionCallArguments += delta.delta
+        
+    case .functionCallArgumentsDone(let done):
+        // Function call is complete
+        print("Function: \(done.name)")
+        print("Arguments: \(functionCallArguments)")
+        
+    case .outputTextDelta(let delta):
+        // Regular text output
+        print(delta.delta, terminator: "")
+        
+    default:
+        break
+    }
+}
+```
+
+Canceling a Stream
+```swift
+// Streams can be canceled using Swift's task cancellation
+let streamTask = Task {
+    let stream = try await service.responseCreateStream(parameters)
+    
+    for try await event in stream {
+        // Check if task is cancelled
+        if Task.isCancelled {
+            break
+        }
+        
+        // Process events...
+    }
+}
+
+// Cancel the stream when needed
+streamTask.cancel()
+```
+
+Complete Streaming Implementation Example
+```swift
+@MainActor
+@Observable
+class ResponseStreamProvider {
+    var messages: [Message] = []
+    var isStreaming = false
+    var error: String?
+    
+    private let service: OpenAIService
+    private var previousResponseId: String?
+    private var streamTask: Task<Void, Never>?
+    
+    init(service: OpenAIService) {
+        self.service = service
+    }
+    
+    func sendMessage(_ text: String) {
+        streamTask?.cancel()
+        
+        // Add user message
+        messages.append(Message(role: .user, content: text))
+        
+        // Start streaming
+        streamTask = Task {
+            await streamResponse(for: text)
+        }
+    }
+    
+    private func streamResponse(for userInput: String) async {
+        isStreaming = true
+        error = nil
+        
+        // Create streaming message placeholder
+        let streamingMessage = Message(role: .assistant, content: "", isStreaming: true)
+        messages.append(streamingMessage)
+        
+        do {
+            // Build conversation history
+            var inputArray: [InputItem] = []
+            for message in messages.dropLast(2) {
+                inputArray.append(.message(InputMessage(
+                    role: message.role.rawValue,
+                    content: .text(message.content)
+                )))
+            }
+            inputArray.append(.message(InputMessage(
+                role: "user",
+                content: .text(userInput)
+            )))
+            
+            let parameters = ModelResponseParameter(
+                input: .array(inputArray),
+                model: .gpt4o,
+                previousResponseId: previousResponseId,
+                stream: true
+            )
+            
+            let stream = try await service.responseCreateStream(parameters)
+            var accumulatedText = ""
+            
+            for try await event in stream {
+                guard !Task.isCancelled else { break }
+                
+                switch event {
+                case .outputTextDelta(let delta):
+                    accumulatedText += delta.delta
+                    updateStreamingMessage(with: accumulatedText)
+                    
+                case .responseCompleted(let completed):
+                    previousResponseId = completed.response.id
+                    finalizeStreamingMessage(with: accumulatedText, responseId: completed.response.id)
+                    
+                case .error(let errorEvent):
+                    throw APIError.requestFailed(description: errorEvent.message)
+                    
+                default:
+                    break
+                }
+            }
+        } catch {
+            self.error = error.localizedDescription
+            messages.removeLast() // Remove streaming message on error
+        }
+        
+        isStreaming = false
+    }
+    
+    private func updateStreamingMessage(with content: String) {
+        if let index = messages.lastIndex(where: { $0.isStreaming }) {
+            messages[index].content = content
+        }
+    }
+    
+    private func finalizeStreamingMessage(with content: String, responseId: String) {
+        if let index = messages.lastIndex(where: { $0.isStreaming }) {
+            messages[index].content = content
+            messages[index].isStreaming = false
+            messages[index].responseId = responseId
+        }
+    }
+}
 ```
 
 ### Embeddings
@@ -3785,6 +4454,19 @@ let service = OpenAIServiceFactory.service(apiKey: apiKey, overrideBaseURL: "htt
 ```
 
 For Supported API's using Groq visit its [documentation](https://console.groq.com/docs/openai).
+
+## xAI
+
+<img width="792" alt="xAI Grok" src="https://github.com/user-attachments/assets/596ef28a-b8ea-4868-b37c-36ae28d77a30">
+
+xAI provides an OpenAI-compatible completion API to its Grok models. You can use the OpenAI SDK to access these models.
+
+```swift
+let apiKey = "your_api_xai_key"
+let service = OpenAIServiceFactory.service(apiKey: apiKey, overrideBaseURL: "https://api.x.ai", overrideVersion: "v1")
+```
+
+For more information about the `xAI` api visit its [documentation](https://docs.x.ai/docs/overview).
 
 ## OpenRouter
 

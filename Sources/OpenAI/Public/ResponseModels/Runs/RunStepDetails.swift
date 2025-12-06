@@ -10,7 +10,6 @@ import Foundation
 // MARK: - RunStepDetails
 
 public struct RunStepDetails: Codable {
-
   public struct MessageCreation: Codable {
     /// The ID of the message that was created by this run step.
     public let messageID: String
@@ -21,7 +20,6 @@ public struct RunStepDetails: Codable {
   }
 
   public struct ToolCall: Codable {
-
     public init(from decoder: Decoder) throws {
       let container = try decoder.container(keyedBy: CodingKeys.self)
       index = try container.decodeIfPresent(Int.self, forKey: .index)
@@ -77,7 +75,6 @@ public struct RunStepDetails: Codable {
       case fileSearch = "file_search"
       case function
     }
-
   }
 
   /// `message_creation` or `tool_calls`
@@ -92,14 +89,12 @@ public struct RunStepDetails: Codable {
     case messageCreation = "message_creation"
     case toolCalls = "tool_calls"
   }
-
 }
 
 // MARK: - RunStepToolCall
 
 /// Details of the tool call.
 public enum RunStepToolCall: Codable {
-
   case codeInterpreterToolCall(CodeInterpreterToolCall)
   case fileSearchToolCall(FileSearchToolCall)
   case functionToolCall(FunctionToolCall)
@@ -144,7 +139,6 @@ public enum RunStepToolCall: Codable {
     case fileSearch = "file_search"
     case function
   }
-
 }
 
 // MARK: - CodeInterpreterToolCall
@@ -178,13 +172,11 @@ public struct CodeInterpreterToolCall: Codable {
   enum CodingKeys: String, CodingKey {
     case input, outputs
   }
-
 }
 
 // MARK: - CodeInterpreterOutput
 
 public enum CodeInterpreterOutput: Codable {
-
   case logs(CodeInterpreterLogOutput)
   case images(CodeInterpreterImageOutput)
 
@@ -224,14 +216,12 @@ public enum CodeInterpreterOutput: Codable {
   private enum OutputType: String, Decodable {
     case logs, images
   }
-
 }
 
 // MARK: - CodeInterpreterLogOutput
 
 /// Text output from the Code Interpreter tool call as part of a run step.
 public struct CodeInterpreterLogOutput: Codable {
-
   /// Always logs.
   public var type: String
   /// The text output from the Code Interpreter tool call.
@@ -246,7 +236,6 @@ public struct CodeInterpreterLogOutput: Codable {
 // MARK: - CodeInterpreterImageOutput
 
 public struct CodeInterpreterImageOutput: Codable {
-
   public init(type: String, image: Image) {
     self.type = type
     self.image = image
@@ -267,13 +256,11 @@ public struct CodeInterpreterImageOutput: Codable {
 
   public var type: String
   public var image: Image
-
 }
 
-// MARK: - FileSearchToolCall
+// MARK: - RunStepFileSearchToolCall
 
-public struct FileSearchToolCall: Codable {
-
+public struct RunStepFileSearchToolCall: Codable {
   /// For now, this is always going to be an empty object.
   public let fileSearch: [String: String]?
 
@@ -282,10 +269,9 @@ public struct FileSearchToolCall: Codable {
   }
 }
 
-// MARK: - FunctionToolCall
+// MARK: - RunStepFunctionToolCall
 
-public struct FunctionToolCall: Codable {
-
+public struct RunStepFunctionToolCall: Codable {
   /// The name of the function.
   public var name: String?
   /// The arguments passed to the function.

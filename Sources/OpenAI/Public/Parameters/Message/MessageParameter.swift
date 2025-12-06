@@ -9,7 +9,6 @@ import Foundation
 
 /// [Create a message.](https://platform.openai.com/docs/api-reference/messages/createMessage)
 public struct MessageParameter: Encodable {
-
   public init(
     role: Role,
     content: Content,
@@ -82,7 +81,6 @@ public struct MessageParameter: Encodable {
 
   /// References an image URL in the content of a message.
   public struct ImageURL: Encodable {
-
     /// The external URL of the image, must be a supported image types: jpeg, jpg, png, gif, webp.
     let url: String
 
@@ -105,7 +103,6 @@ public struct MessageParameter: Encodable {
 
   /// References an image [File](https://platform.openai.com/docs/api-reference/files) in the content of a message.
   public struct ImageFile: Encodable {
-
     /// The [File](https://platform.openai.com/docs/api-reference/files) ID of the image in the message content. Set purpose="vision" when uploading the File if you need to later display the file content.
     let fileId: String
     /// Specifies the detail level of the image if specified by the user. low uses fewer tokens, you can opt in to high resolution using high.
@@ -135,5 +132,4 @@ public struct MessageParameter: Encodable {
   let attachments: [MessageAttachment]?
   /// Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format. Keys can be a maximum of 64 characters long and values can be a maxium of 512 characters long.
   let metadata: [String: String]?
-
 }

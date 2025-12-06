@@ -4,7 +4,7 @@
 //
 //  Created by Lou Zell on 3/27/24.
 //
-
+#if !os(Linux)
 import Foundation
 
 private let aiproxySecureDelegate = AIProxyCertificatePinningDelegate()
@@ -12,7 +12,6 @@ private let aiproxySecureDelegate = AIProxyCertificatePinningDelegate()
 // MARK: - AIProxyService
 
 struct AIProxyService: OpenAIService {
-
   /// Initializes an instance of the OpenAI service with the required configurations.
   ///
   /// - Parameters:
@@ -34,19 +33,20 @@ struct AIProxyService: OpenAIService {
     organizationID: String? = nil,
     debugEnabled: Bool)
   {
-    session = URLSession(
-      configuration: .default,
-      delegate: aiproxySecureDelegate,
-      delegateQueue: nil)
     decoder = JSONDecoder()
     self.partialKey = partialKey
     self.clientID = clientID
     self.organizationID = organizationID
     self.debugEnabled = debugEnabled
     openAIEnvironment = .init(baseURL: serviceURL ?? "https://api.aiproxy.pro", proxyPath: nil, version: "v1")
+    httpClient = URLSessionHTTPClientAdapter(
+      urlSession: URLSession(
+        configuration: .default,
+        delegate: aiproxySecureDelegate,
+        delegateQueue: nil))
   }
 
-  let session: URLSession
+  let httpClient: HTTPClient
   let decoder: JSONDecoder
   let openAIEnvironment: OpenAIEnvironment
 
@@ -95,21 +95,15 @@ struct AIProxyService: OpenAIService {
     return AudioSpeechObject(output: data)
   }
 
-  func createStreamingSpeech(
-    parameters: AudioSpeechParameters)
-    async throws -> AsyncThrowingStream<AudioSpeechChunkObject, Error>
+#if canImport(AVFoundation)
+  func realtimeSession(
+    model _: String,
+    configuration _: OpenAIRealtimeSessionConfiguration)
+    async throws -> OpenAIRealtimeSession
   {
-    var streamingParameters = parameters
-    streamingParameters.stream = true
-    let request = try await OpenAIAPI.audio(.speech).request(
-      aiproxyPartialKey: partialKey,
-      clientID: clientID,
-      organizationID: organizationID,
-      openAIEnvironment: openAIEnvironment,
-      method: .post,
-      params: streamingParameters)
-    return try await fetchAudioStream(debugEnabled: debugEnabled, with: request)
+    fatalError("Realtime API is not yet supported for AIProxy. Please use DefaultOpenAIService instead.")
   }
+  #endif
 
   // MARK: Chat
 
@@ -183,7 +177,7 @@ struct AIProxyService: OpenAIService {
     limit: Int? = nil)
     async throws -> OpenAIResponse<FineTuningJobObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let lastJobID, let limit {
       queryItems = [.init(name: "after", value: lastJobID), .init(name: "limit", value: "\(limit)")]
     } else if let lastJobID {
@@ -234,7 +228,7 @@ struct AIProxyService: OpenAIService {
     limit: Int? = nil)
     async throws -> OpenAIResponse<FineTuningJobEventObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let lastEventId, let limit {
       queryItems = [.init(name: "after", value: lastEventId), .init(name: "limit", value: "\(limit)")]
     } else if let lastEventId {
@@ -543,7 +537,7 @@ struct AIProxyService: OpenAIService {
     before: String? = nil)
     async throws -> OpenAIResponse<AssistantObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -701,7 +695,7 @@ struct AIProxyService: OpenAIService {
     runID _: String? = nil)
     async throws -> OpenAIResponse<MessageObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -783,7 +777,7 @@ struct AIProxyService: OpenAIService {
     before: String? = nil)
     async throws -> OpenAIResponse<RunObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -881,7 +875,7 @@ struct AIProxyService: OpenAIService {
     before: String? = nil)
     async throws -> OpenAIResponse<RunStepObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -1006,7 +1000,7 @@ struct AIProxyService: OpenAIService {
     limit: Int? = nil)
     async throws -> OpenAIResponse<BatchObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -1047,7 +1041,7 @@ struct AIProxyService: OpenAIService {
     before: String? = nil)
     async throws -> OpenAIResponse<VectorStoreObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -1142,7 +1136,7 @@ struct AIProxyService: OpenAIService {
     filter: String? = nil)
     async throws -> OpenAIResponse<VectorStoreFileObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -1257,7 +1251,7 @@ struct AIProxyService: OpenAIService {
     filter: String? = nil)
     async throws -> OpenAIResponse<VectorStoreFileObject>
   {
-    var queryItems: [URLQueryItem] = []
+    var queryItems = [URLQueryItem]()
     if let limit {
       queryItems.append(.init(name: "limit", value: "\(limit)"))
     }
@@ -1303,7 +1297,8 @@ struct AIProxyService: OpenAIService {
   }
 
   func responseModel(
-    id _: String)
+    id _: String,
+    parameters _: GetResponseParameter?)
     async throws -> ResponseModel
   {
     let request = try await OpenAIAPI.chat.request(
@@ -1313,6 +1308,116 @@ struct AIProxyService: OpenAIService {
       openAIEnvironment: openAIEnvironment,
       method: .post)
     return try await fetch(debugEnabled: debugEnabled, type: ResponseModel.self, with: request)
+  }
+
+  func responseModelStream(
+    id _: String,
+    parameters _: GetResponseParameter?)
+    async throws -> AsyncThrowingStream<ResponseStreamEvent, Error>
+  {
+    fatalError("responseModelStream not implemented for AIProxy Service")
+  }
+
+  func responseCreateStream(
+    _ parameters: ModelResponseParameter)
+    async throws -> AsyncThrowingStream<ResponseStreamEvent, Error>
+  {
+    var responseParameters = parameters
+    responseParameters.stream = true
+    let request = try await OpenAIAPI.response(.create).request(
+      aiproxyPartialKey: partialKey,
+      clientID: clientID,
+      organizationID: organizationID,
+      openAIEnvironment: openAIEnvironment,
+      method: .post,
+      params: responseParameters)
+    return try await fetchStream(debugEnabled: debugEnabled, type: ResponseStreamEvent.self, with: request)
+  }
+
+  func responseDelete(
+    id _: String)
+    async throws -> DeletionStatus
+  {
+    fatalError("responseDelete not implemented for AIProxy Service")
+  }
+
+  func responseCancel(
+    id _: String)
+    async throws -> ResponseModel
+  {
+    fatalError("responseCancel not implemented for AIProxy Service")
+  }
+
+  func responseInputItems(
+    id _: String,
+    parameters _: GetInputItemsParameter?)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError("responseInputItems not implemented for AIProxy Service")
+  }
+
+  // MARK: - Conversations
+
+  func conversationCreate(
+    parameters _: CreateConversationParameter?)
+    async throws -> ConversationModel
+  {
+    fatalError("conversationCreate not implemented for AIProxy Service")
+  }
+
+  func getConversation(
+    id _: String)
+    async throws -> ConversationModel
+  {
+    fatalError("getConversation not implemented for AIProxy Service")
+  }
+
+  func updateConversation(
+    id _: String,
+    parameters _: UpdateConversationParameter)
+    async throws -> ConversationModel
+  {
+    fatalError("updateConversation not implemented for AIProxy Service")
+  }
+
+  func deleteConversation(
+    id _: String)
+    async throws -> DeletionStatus
+  {
+    fatalError("deleteConversation not implemented for AIProxy Service")
+  }
+
+  func getConversationItems(
+    id _: String,
+    parameters _: GetConversationItemsParameter?)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError("getConversationItems not implemented for AIProxy Service")
+  }
+
+  func createConversationItems(
+    id _: String,
+    parameters _: CreateConversationItemsParameter)
+    async throws -> OpenAIResponse<InputItem>
+  {
+    fatalError("createConversationItems not implemented for AIProxy Service")
+  }
+
+  func getConversationItem(
+    conversationID _: String,
+    itemID _: String,
+    parameters _: GetConversationItemParameter?)
+    async throws -> InputItem
+  {
+    fatalError("getConversationItem not implemented for AIProxy Service")
+  }
+
+  func deleteConversationItem(
+    conversationID _: String,
+    itemID _: String)
+    async throws -> ConversationModel
+  {
+    fatalError("deleteConversationItem not implemented for AIProxy Service")
   }
 
   private static let assistantsBetaV2 = "assistants=v2"
@@ -1328,5 +1433,5 @@ struct AIProxyService: OpenAIService {
 
   /// [organization](https://platform.openai.com/docs/api-reference/organization-optional)
   private let organizationID: String?
-
 }
+#endif

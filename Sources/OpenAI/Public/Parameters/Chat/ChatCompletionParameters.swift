@@ -40,7 +40,8 @@ public struct ChatCompletionParameters: Encodable {
     topProbability: Double? = nil,
     user: String? = nil,
     streamOptions: StreamOptions? = nil,
-    reasoning: [String: Any]? = nil)
+    reasoning: [String: Any]? = nil,
+    usage: UsageConfig? = nil)
   {
     self.messages = messages
     self.model = model.value
@@ -72,6 +73,7 @@ public struct ChatCompletionParameters: Encodable {
     self.user = user
     self.streamOptions = streamOptions
     self.reasoning = reasoning
+    self.usage = usage
   }
 
   public struct Message: Encodable {
@@ -535,6 +537,18 @@ public struct ChatCompletionParameters: Encodable {
   /// This is used for models that support reasoning tokens on OpenRouter
   public var reasoning: [String: Any]?
 
+  /// OpenRouter-specific usage configuration to include token counts in response
+  /// Set to `UsageConfig(include: true)` to get detailed token usage
+  public var usage: UsageConfig?
+
+  public struct UsageConfig: Encodable {
+    public let include: Bool
+
+    public init(include: Bool) {
+      self.include = include
+    }
+  }
+
   enum CodingKeys: String, CodingKey {
     case messages
     case model
@@ -568,6 +582,7 @@ public struct ChatCompletionParameters: Encodable {
     case topP = "top_p"
     case user
     case reasoning
+    case usage
   }
 
   /// If set, partial message deltas will be sent, like in ChatGPT. Tokens will be sent as data-only [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format) as they become available, with the stream terminated by a data: [DONE] message. [Example Python code](https://cookbook.openai.com/examples/how_to_stream_completions ).
@@ -614,6 +629,9 @@ public struct ChatCompletionParameters: Encodable {
     if let reasoning = reasoning {
       try container.encode(AnyCodable(reasoning), forKey: .reasoning)
     }
+
+    // Handle usage config for OpenRouter
+    try container.encodeIfPresent(usage, forKey: .usage)
   }
 }
 

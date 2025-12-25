@@ -14,12 +14,14 @@ public struct ToolCall: Codable {
     index: Int? = nil,
     id: String?,
     type: String = "function",
-    function: FunctionCall)
+    function: FunctionCall,
+    extraContent: ExtraContent? = nil)
   {
     self.index = index
     self.id = id
     self.type = type
     self.function = function
+    self.extraContent = extraContent
   }
 
   public let index: Int?
@@ -29,6 +31,42 @@ public struct ToolCall: Codable {
   public let type: String?
   /// The function that the model called.
   public let function: FunctionCall
+  /// Extra content from providers like Google Gemini (contains thought_signature for reasoning models)
+  public let extraContent: ExtraContent?
+
+  enum CodingKeys: String, CodingKey {
+    case index
+    case id
+    case type
+    case function
+    case extraContent = "extra_content"
+  }
+
+  // MARK: - ExtraContent (Gemini thought_signature support)
+
+  /// Extra content returned by providers, used for Gemini's thought_signature
+  public struct ExtraContent: Codable {
+    public let google: GoogleContent?
+
+    public init(google: GoogleContent?) {
+      self.google = google
+    }
+
+    /// Google-specific content containing thought_signature
+    public struct GoogleContent: Codable {
+      /// The thought signature required for Gemini 3 models with tool calls.
+      /// Must be passed back in subsequent requests to preserve reasoning state.
+      public let thoughtSignature: String?
+
+      public init(thoughtSignature: String?) {
+        self.thoughtSignature = thoughtSignature
+      }
+
+      enum CodingKeys: String, CodingKey {
+        case thoughtSignature = "thought_signature"
+      }
+    }
+  }
 }
 
 // MARK: - FunctionCall

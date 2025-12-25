@@ -174,10 +174,41 @@ public enum OutputItem: Decodable {
       }
     }
 
-    /// Annotation in text output
+    /// Annotation in text output (e.g., url_citation from web search, file_citation from file search)
     public struct Annotation: Decodable {
-      // Properties would be defined based on different annotation types
-      // Such as file_citation, etc.
+      /// The type of annotation (e.g., "url_citation", "file_citation")
+      public let type: String
+      /// The start index of the annotation in the text
+      public let startIndex: Int
+      /// The end index of the annotation in the text
+      public let endIndex: Int
+      /// The URL for url_citation annotations
+      public let url: String?
+      /// The title for url_citation annotations
+      public let title: String?
+      /// The file ID for file_citation annotations
+      public let fileId: String?
+      /// The filename for file_citation annotations
+      public let filename: String?
+
+      enum CodingKeys: String, CodingKey {
+        case type
+        case startIndex = "start_index"
+        case endIndex = "end_index"
+        case url, title
+        case fileId = "file_id"
+        case filename
+      }
+
+      /// Check if this is a URL citation
+      public var isURLCitation: Bool {
+        type == "url_citation"
+      }
+
+      /// Check if this is a file citation
+      public var isFileCitation: Bool {
+        type == "file_citation"
+      }
     }
 
     /// Other content types could be added here as they are defined

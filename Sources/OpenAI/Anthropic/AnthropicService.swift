@@ -124,7 +124,12 @@ public class DefaultAnthropicService: AnthropicService {
           }
 
           var pendingData = ""
+          var lineCount = 0
           for try await line in lineStream {
+            lineCount += 1
+            // Always log raw lines for debugging
+            print("[Anthropic SSE] Line \(lineCount): '\(line)'")
+
             if Task.isCancelled {
               continuation.finish()
               return
@@ -153,6 +158,7 @@ public class DefaultAnthropicService: AnthropicService {
 
             // Try to parse when we have data and hit an empty line (end of SSE message)
             if line.isEmpty && !pendingData.isEmpty {
+              print("[Anthropic SSE] Parsing pending data: \(pendingData.prefix(200))...")
               if let data = pendingData.data(using: .utf8) {
                 do {
                   let event = try self.decoder.decode(AnthropicStreamEvent.self, from: data)
@@ -162,6 +168,7 @@ public class DefaultAnthropicService: AnthropicService {
                     self.debugLog("[Anthropic] Event: \(pendingData)")
                   }
                 } catch {
+                  print("[Anthropic SSE] Decode error: \(error), data: \(pendingData)")
                   if self.debugEnabled {
                     self.debugLog("[Anthropic] Decode error: \(error), data: \(pendingData)")
                   }
@@ -170,6 +177,7 @@ public class DefaultAnthropicService: AnthropicService {
               pendingData = ""
             }
           }
+          print("[Anthropic SSE] Stream ended after \(lineCount) lines")
 
           // Handle any remaining data
           if !pendingData.isEmpty, let data = pendingData.data(using: .utf8) {

@@ -125,10 +125,11 @@ public class DefaultAnthropicService: AnthropicService {
 
           var pendingData = ""
           var lineCount = 0
+          self.debugLog("[Anthropic SSE] Starting stream iteration")
           for try await line in lineStream {
             lineCount += 1
             // Always log raw lines for debugging
-            print("[Anthropic SSE] Line \(lineCount): '\(line)'")
+            self.debugLog("[Anthropic SSE] Line \(lineCount): '\(line)'")
 
             if Task.isCancelled {
               continuation.finish()
@@ -137,7 +138,18 @@ public class DefaultAnthropicService: AnthropicService {
 
             // Handle SSE format
             if line.hasPrefix("event:") {
-              // Event type line - we'll get the data next
+              // A new event line means previous event is complete
+              // Parse any pending data before processing this new event
+              if !pendingData.isEmpty, let data = pendingData.data(using: .utf8) {
+                do {
+                  let event = try self.decoder.decode(AnthropicStreamEvent.self, from: data)
+                  print("[Anthropic SSE] ✅ Yielding event from pending data: \(String(describing: event).prefix(100))")
+                  continuation.yield(event)
+                } catch {
+                  print("[Anthropic SSE] ❌ Decode error: \(error), data: \(pendingData.prefix(200))")
+                }
+                pendingData = ""
+              }
               continue
             }
 

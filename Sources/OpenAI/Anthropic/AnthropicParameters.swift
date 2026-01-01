@@ -418,7 +418,7 @@ public struct AnthropicServerTool: Encodable {
 // MARK: - AnthropicToolChoice
 
 /// How the model should choose tools.
-public enum AnthropicToolChoice: Encodable {
+public enum AnthropicToolChoice: Encodable, Equatable {
   case auto
   case any
   case none

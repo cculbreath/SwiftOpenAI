@@ -102,12 +102,41 @@ public class DefaultAnthropicService: AnthropicService {
     let (byteStream, response) = try await httpClient.bytes(for: httpRequest)
 
     guard (200...299).contains(response.statusCode) else {
-      // Try to read error body
+      // Try to read error body with detailed diagnostics
       var errorBody = ""
-      if case .lines(let lineStream) = byteStream {
-        for try await line in lineStream {
-          errorBody += line
+      var streamType = "unknown"
+
+      switch byteStream {
+      case .lines(let lineStream):
+        streamType = "lines"
+        do {
+          for try await line in lineStream {
+            errorBody += line
+          }
+        } catch {
+          print("🚨 [Anthropic] Error reading error body stream: \(error)")
         }
+      case .bytes(let byteStream):
+        streamType = "bytes"
+        // Try to read bytes directly
+        do {
+          var data = Data()
+          for try await byte in byteStream {
+            data.append(byte)
+          }
+          errorBody = String(data: data, encoding: .utf8) ?? "(non-UTF8 data, \(data.count) bytes)"
+        } catch {
+          print("🚨 [Anthropic] Error reading error body bytes: \(error)")
+        }
+      }
+
+      // Always log Anthropic errors for debugging
+      print("🚨 [Anthropic] HTTP \(response.statusCode) error (stream type: \(streamType))")
+      print("🚨 [Anthropic] Error body: \(errorBody.isEmpty ? "(empty)" : errorBody)")
+      if let body = request.httpBody, let requestStr = String(data: body, encoding: .utf8) {
+        // Log truncated request body to help diagnose
+        let truncated = requestStr.count > 2000 ? String(requestStr.prefix(2000)) + "... [truncated]" : requestStr
+        print("🚨 [Anthropic] Request body (truncated): \(truncated)")
       }
       throw APIError.responseUnsuccessful(
         description: "Request failed",

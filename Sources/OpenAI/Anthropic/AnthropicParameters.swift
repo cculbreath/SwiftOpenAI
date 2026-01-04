@@ -226,6 +226,7 @@ public enum AnthropicContent: Codable {
 public enum AnthropicContentBlock: Codable {
   case text(AnthropicTextBlock)
   case image(AnthropicImageBlock)
+  case document(AnthropicDocumentBlock)
   case toolUse(AnthropicToolUseBlock)
   case toolResult(AnthropicToolResultBlock)
 
@@ -238,6 +239,8 @@ public enum AnthropicContentBlock: Codable {
     case .text(let block):
       try block.encode(to: encoder)
     case .image(let block):
+      try block.encode(to: encoder)
+    case .document(let block):
       try block.encode(to: encoder)
     case .toolUse(let block):
       try block.encode(to: encoder)
@@ -255,6 +258,8 @@ public enum AnthropicContentBlock: Codable {
       self = .text(try AnthropicTextBlock(from: decoder))
     case "image":
       self = .image(try AnthropicImageBlock(from: decoder))
+    case "document":
+      self = .document(try AnthropicDocumentBlock(from: decoder))
     case "tool_use":
       self = .toolUse(try AnthropicToolUseBlock(from: decoder))
     case "tool_result":
@@ -291,6 +296,34 @@ public struct AnthropicImageBlock: Codable {
 }
 
 public struct AnthropicImageSource: Codable {
+  public let type: String
+  public let mediaType: String
+  public let data: String
+
+  public init(mediaType: String, data: String) {
+    self.type = "base64"
+    self.mediaType = mediaType
+    self.data = data
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case mediaType = "media_type"
+    case data
+  }
+}
+
+public struct AnthropicDocumentBlock: Codable {
+  public let type: String
+  public let source: AnthropicDocumentSource
+
+  public init(source: AnthropicDocumentSource) {
+    self.type = "document"
+    self.source = source
+  }
+}
+
+public struct AnthropicDocumentSource: Codable {
   public let type: String
   public let mediaType: String
   public let data: String

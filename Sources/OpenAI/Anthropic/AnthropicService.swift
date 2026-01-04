@@ -114,7 +114,7 @@ public class DefaultAnthropicService: AnthropicService {
             errorBody += line
           }
         } catch {
-          print("🚨 [Anthropic] Error reading error body stream: \(error)")
+          // Error reading stream - captured in errorBody if possible
         }
       case .bytes(let byteStream):
         streamType = "bytes"
@@ -126,17 +126,18 @@ public class DefaultAnthropicService: AnthropicService {
           }
           errorBody = String(data: data, encoding: .utf8) ?? "(non-UTF8 data, \(data.count) bytes)"
         } catch {
-          print("🚨 [Anthropic] Error reading error body bytes: \(error)")
+          // Error reading bytes - captured in errorBody if possible
         }
       }
 
-      // Always log Anthropic errors for debugging
-      print("🚨 [Anthropic] HTTP \(response.statusCode) error (stream type: \(streamType))")
-      print("🚨 [Anthropic] Error body: \(errorBody.isEmpty ? "(empty)" : errorBody)")
-      if let body = request.httpBody, let requestStr = String(data: body, encoding: .utf8) {
-        // Log truncated request body to help diagnose
-        let truncated = requestStr.count > 2000 ? String(requestStr.prefix(2000)) + "... [truncated]" : requestStr
-        print("🚨 [Anthropic] Request body (truncated): \(truncated)")
+      // Log errors only when debug is enabled
+      if debugEnabled {
+        debugLog("🚨 [Anthropic] HTTP \(response.statusCode) error (stream type: \(streamType))")
+        debugLog("🚨 [Anthropic] Error body: \(errorBody.isEmpty ? "(empty)" : errorBody)")
+        if let body = request.httpBody, let requestStr = String(data: body, encoding: .utf8) {
+          let truncated = requestStr.count > 2000 ? String(requestStr.prefix(2000)) + "... [truncated]" : requestStr
+          debugLog("🚨 [Anthropic] Request body (truncated): \(truncated)")
+        }
       }
       throw APIError.responseUnsuccessful(
         description: "Request failed",
@@ -172,10 +173,14 @@ public class DefaultAnthropicService: AnthropicService {
               if !pendingData.isEmpty, let data = pendingData.data(using: .utf8) {
                 do {
                   let event = try self.decoder.decode(AnthropicStreamEvent.self, from: data)
-                  print("[Anthropic SSE] ✅ Yielding event from pending data: \(String(describing: event).prefix(100))")
+                  if self.debugEnabled {
+                    self.debugLog("[Anthropic SSE] ✅ Yielding event from pending data: \(String(describing: event).prefix(100))")
+                  }
                   continuation.yield(event)
                 } catch {
-                  print("[Anthropic SSE] ❌ Decode error: \(error), data: \(pendingData.prefix(200))")
+                  if self.debugEnabled {
+                    self.debugLog("[Anthropic SSE] ❌ Decode error: \(error), data: \(pendingData.prefix(200))")
+                  }
                 }
                 pendingData = ""
               }
@@ -199,7 +204,9 @@ public class DefaultAnthropicService: AnthropicService {
 
             // Try to parse when we have data and hit an empty line (end of SSE message)
             if line.isEmpty && !pendingData.isEmpty {
-              print("[Anthropic SSE] Parsing pending data: \(pendingData.prefix(200))...")
+              if self.debugEnabled {
+                self.debugLog("[Anthropic SSE] Parsing pending data: \(pendingData.prefix(200))...")
+              }
               if let data = pendingData.data(using: .utf8) {
                 do {
                   let event = try self.decoder.decode(AnthropicStreamEvent.self, from: data)
@@ -209,7 +216,9 @@ public class DefaultAnthropicService: AnthropicService {
                     self.debugLog("[Anthropic] Event: \(pendingData)")
                   }
                 } catch {
-                  print("[Anthropic SSE] Decode error: \(error), data: \(pendingData)")
+                  if self.debugEnabled {
+                    self.debugLog("[Anthropic SSE] Decode error: \(error), data: \(pendingData)")
+                  }
                   if self.debugEnabled {
                     self.debugLog("[Anthropic] Decode error: \(error), data: \(pendingData)")
                   }
@@ -218,7 +227,9 @@ public class DefaultAnthropicService: AnthropicService {
               pendingData = ""
             }
           }
-          print("[Anthropic SSE] Stream ended after \(lineCount) lines")
+          if self.debugEnabled {
+            self.debugLog("[Anthropic SSE] Stream ended after \(lineCount) lines")
+          }
 
           // Handle any remaining data
           if !pendingData.isEmpty, let data = pendingData.data(using: .utf8) {

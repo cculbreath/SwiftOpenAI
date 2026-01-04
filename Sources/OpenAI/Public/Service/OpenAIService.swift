@@ -24,11 +24,15 @@ public protocol OpenAILoggerProtocol {
 /// Default logger implementation that uses print statements
 private class DefaultOpenAILogger: OpenAILoggerProtocol {
   func debug(_ message: String) {
+    #if DEBUG
     debugPrint("[OpenAI] \(message)")
+    #endif
   }
 
   func error(_ message: String) {
-    print("🚨 [OpenAI] ERROR: \(message)")
+    #if DEBUG
+    debugPrint("🚨 [OpenAI] ERROR: \(message)")
+    #endif
   }
 }
 

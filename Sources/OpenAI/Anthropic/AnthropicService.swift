@@ -155,11 +155,15 @@ public class DefaultAnthropicService: AnthropicService {
 
           var pendingData = ""
           var lineCount = 0
-          self.debugLog("[Anthropic SSE] Starting stream iteration")
+          if self.debugEnabled {
+            self.debugLog("[Anthropic SSE] Starting stream iteration")
+          }
           for try await line in lineStream {
             lineCount += 1
-            // Always log raw lines for debugging
-            self.debugLog("[Anthropic SSE] Line \(lineCount): '\(line)'")
+            // Only log raw lines when debug is enabled (very verbose)
+            if self.debugEnabled {
+              self.debugLog("[Anthropic SSE] Line \(lineCount): '\(line)'")
+            }
 
             if Task.isCancelled {
               continuation.finish()

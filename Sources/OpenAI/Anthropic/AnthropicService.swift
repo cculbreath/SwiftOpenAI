@@ -73,7 +73,8 @@ public class DefaultAnthropicService: AnthropicService {
         topP: params.topP,
         topK: params.topK,
         stopSequences: params.stopSequences,
-        metadata: params.metadata
+        metadata: params.metadata,
+        outputFormat: params.outputFormat
       )
     }
 
@@ -81,6 +82,9 @@ public class DefaultAnthropicService: AnthropicService {
     var betaHeaders: [String] = []
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
+    }
+    if hasStructuredOutput(params.outputFormat) {
+      betaHeaders.append("structured-outputs-2025-11-13")
     }
 
     let request = try AnthropicAPI.messages.request(
@@ -274,7 +278,8 @@ public class DefaultAnthropicService: AnthropicService {
         topP: params.topP,
         topK: params.topK,
         stopSequences: params.stopSequences,
-        metadata: params.metadata
+        metadata: params.metadata,
+        outputFormat: params.outputFormat
       )
     }
 
@@ -282,6 +287,9 @@ public class DefaultAnthropicService: AnthropicService {
     var betaHeaders: [String] = []
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
+    }
+    if hasStructuredOutput(params.outputFormat) {
+      betaHeaders.append("structured-outputs-2025-11-13")
     }
 
     let request = try AnthropicAPI.messages.request(
@@ -367,6 +375,14 @@ public class DefaultAnthropicService: AnthropicService {
       }
       return false
     }
+  }
+
+  private func hasStructuredOutput(_ outputFormat: AnthropicOutputFormat?) -> Bool {
+    guard let outputFormat else { return false }
+    if case .jsonSchema = outputFormat {
+      return true
+    }
+    return false
   }
 
   private func debugLog(_ message: String) {

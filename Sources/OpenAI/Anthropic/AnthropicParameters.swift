@@ -47,6 +47,10 @@ public struct AnthropicMessageParameter: Encodable {
   /// Metadata for the request
   public let metadata: AnthropicMetadata?
 
+  /// Output format for structured outputs.
+  /// Requires beta header: anthropic-beta: structured-outputs-2025-11-13
+  public let outputFormat: AnthropicOutputFormat?
+
   public init(
     model: String,
     messages: [AnthropicMessage],
@@ -59,7 +63,8 @@ public struct AnthropicMessageParameter: Encodable {
     topP: Double? = nil,
     topK: Int? = nil,
     stopSequences: [String]? = nil,
-    metadata: AnthropicMetadata? = nil
+    metadata: AnthropicMetadata? = nil,
+    outputFormat: AnthropicOutputFormat? = nil
   ) {
     self.model = model
     self.messages = messages
@@ -73,6 +78,7 @@ public struct AnthropicMessageParameter: Encodable {
     self.topK = topK
     self.stopSequences = stopSequences
     self.metadata = metadata
+    self.outputFormat = outputFormat
   }
 
   enum CodingKeys: String, CodingKey {
@@ -88,6 +94,7 @@ public struct AnthropicMessageParameter: Encodable {
     case topK = "top_k"
     case stopSequences = "stop_sequences"
     case metadata
+    case outputFormat = "output_format"
   }
 }
 
@@ -484,6 +491,53 @@ public struct AnthropicMetadata: Encodable {
 
   enum CodingKeys: String, CodingKey {
     case userId = "user_id"
+  }
+}
+
+// MARK: - AnthropicOutputFormat
+
+/// Output format specification for structured outputs.
+/// Requires beta header: anthropic-beta: structured-outputs-2025-11-13
+public enum AnthropicOutputFormat: Encodable {
+  case text
+  case jsonSchema(AnthropicJSONSchemaFormat)
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch self {
+    case .text:
+      try container.encode(["type": "text"])
+    case .jsonSchema(let format):
+      try container.encode(format)
+    }
+  }
+
+  /// Convenience initializer for creating JSON schema output format
+  public static func schema(
+    name: String,
+    schema: [String: Any],
+    description: String? = nil
+  ) -> AnthropicOutputFormat {
+    .jsonSchema(AnthropicJSONSchemaFormat(
+      name: name,
+      schema: schema,
+      description: description
+    ))
+  }
+}
+
+/// JSON schema format specification
+public struct AnthropicJSONSchemaFormat: Encodable {
+  public let type: String
+  public let name: String
+  public let schema: [String: AnthropicDynamicValue]
+  public let description: String?
+
+  public init(name: String, schema: [String: Any], description: String? = nil) {
+    self.type = "json_schema"
+    self.name = name
+    self.schema = schema.mapValues { AnthropicDynamicValue($0) }
+    self.description = description
   }
 }
 

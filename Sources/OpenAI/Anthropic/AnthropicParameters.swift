@@ -514,30 +514,21 @@ public enum AnthropicOutputFormat: Encodable {
 
   /// Convenience initializer for creating JSON schema output format
   public static func schema(
-    name: String,
-    schema: [String: Any],
-    description: String? = nil
+    schema: [String: Any]
   ) -> AnthropicOutputFormat {
-    .jsonSchema(AnthropicJSONSchemaFormat(
-      name: name,
-      schema: schema,
-      description: description
-    ))
+    .jsonSchema(AnthropicJSONSchemaFormat(schema: schema))
   }
 }
 
 /// JSON schema format specification
+/// Format: { "type": "json_schema", "schema": {...} }
 public struct AnthropicJSONSchemaFormat: Encodable {
   public let type: String
-  public let name: String
   public let schema: [String: AnthropicDynamicValue]
-  public let description: String?
 
-  public init(name: String, schema: [String: Any], description: String? = nil) {
+  public init(schema: [String: Any]) {
     self.type = "json_schema"
-    self.name = name
     self.schema = schema.mapValues { AnthropicDynamicValue($0) }
-    self.description = description
   }
 }
 

@@ -541,11 +541,33 @@ public struct ChatCompletionParameters: Encodable {
   /// Set to `UsageConfig(include: true)` to get detailed token usage
   public var usage: UsageConfig?
 
+  /// OpenRouter-specific provider routing preferences.
+  /// Controls which infrastructure providers OpenRouter uses to serve the request.
+  /// See: https://openrouter.ai/docs/features/provider-routing
+  public var provider: ProviderPreferences?
+
   public struct UsageConfig: Encodable {
     public let include: Bool
 
     public init(include: Bool) {
       self.include = include
+    }
+  }
+
+  public struct ProviderPreferences: Encodable {
+    /// Ordered list of provider names to prefer (e.g., ["Anthropic", "AWS Bedrock"])
+    public let order: [String]?
+    /// Whether to allow fallback to other providers if preferred ones are unavailable
+    public let allowFallbacks: Bool?
+
+    enum CodingKeys: String, CodingKey {
+      case order
+      case allowFallbacks = "allow_fallbacks"
+    }
+
+    public init(order: [String]? = nil, allowFallbacks: Bool? = nil) {
+      self.order = order
+      self.allowFallbacks = allowFallbacks
     }
   }
 
@@ -583,6 +605,7 @@ public struct ChatCompletionParameters: Encodable {
     case user
     case reasoning
     case usage
+    case provider
   }
 
   /// If set, partial message deltas will be sent, like in ChatGPT. Tokens will be sent as data-only [server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format) as they become available, with the stream terminated by a data: [DONE] message. [Example Python code](https://cookbook.openai.com/examples/how_to_stream_completions ).
@@ -632,6 +655,9 @@ public struct ChatCompletionParameters: Encodable {
 
     // Handle usage config for OpenRouter
     try container.encodeIfPresent(usage, forKey: .usage)
+
+    // Handle provider preferences for OpenRouter
+    try container.encodeIfPresent(provider, forKey: .provider)
   }
 }
 

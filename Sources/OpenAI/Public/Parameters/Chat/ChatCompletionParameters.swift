@@ -106,6 +106,26 @@ public struct ChatCompletionParameters: Encodable {
         case imageUrl(ImageDetail)
         case inputAudio(AudioDetail)
         case file(FileDetail)
+        /// Text content with cache_control for provider-side prompt caching (OpenRouter/Anthropic).
+        case cachedText(String, CacheControl)
+
+        /// Cache control configuration for prompt caching.
+        public struct CacheControl: Encodable, Equatable, Hashable {
+          public let type: String
+
+          public init(type: String = "ephemeral") {
+            self.type = type
+          }
+
+          enum CodingKeys: String, CodingKey {
+            case type
+          }
+
+          public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(type, forKey: .type)
+          }
+        }
 
         public struct FileDetail: Encodable, Equatable, Hashable {
           public let filename: String
@@ -180,6 +200,8 @@ public struct ChatCompletionParameters: Encodable {
             a == b
           case (.file(let a), .file(let b)):
             a == b
+          case (.cachedText(let a, let ac), .cachedText(let b, let bc)):
+            a == b && ac == bc
           default:
             false
           }
@@ -203,6 +225,11 @@ public struct ChatCompletionParameters: Encodable {
           case .file(let fileDetail):
             try container.encode("file", forKey: .type)
             try container.encode(fileDetail, forKey: .file)
+
+          case .cachedText(let text, let cacheControl):
+            try container.encode("text", forKey: .type)
+            try container.encode(text, forKey: .text)
+            try container.encode(cacheControl, forKey: .cacheControl)
           }
         }
 
@@ -216,6 +243,9 @@ public struct ChatCompletionParameters: Encodable {
             hasher.combine(audioDetail)
           case .file(let fileDetail):
             hasher.combine(fileDetail)
+          case .cachedText(let string, let cacheControl):
+            hasher.combine(string)
+            hasher.combine(cacheControl)
           }
         }
 
@@ -225,6 +255,7 @@ public struct ChatCompletionParameters: Encodable {
           case imageUrl = "image_url"
           case inputAudio = "input_audio"
           case file
+          case cacheControl = "cache_control"
         }
       }
 

@@ -47,7 +47,7 @@ public func setOpenAILogger(_ logger: OpenAILoggerProtocol) {
 
 // MARK: - APIError
 
-public enum APIError: Error {
+public enum APIError: Error, LocalizedError {
   case requestFailed(description: String)
   case responseUnsuccessful(description: String, statusCode: Int, responseBody: String? = nil)
   case invalidData
@@ -55,6 +55,8 @@ public enum APIError: Error {
   case dataCouldNotBeReadMissingData(description: String)
   case bothDecodingStrategiesFailed
   case timeOutError
+
+  public var errorDescription: String? { displayDescription }
 
   public var displayDescription: String {
     switch self {

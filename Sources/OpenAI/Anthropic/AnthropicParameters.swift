@@ -48,7 +48,7 @@ public struct AnthropicMessageParameter: Encodable {
   public let metadata: AnthropicMetadata?
 
   /// Output format for structured outputs.
-  /// Requires beta header: anthropic-beta: structured-outputs-2025-11-13
+  /// Structured outputs are GA as of Claude 4.6 — no beta header needed.
   public let outputFormat: AnthropicOutputFormat?
 
   public init(

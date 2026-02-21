@@ -83,9 +83,7 @@ public class DefaultAnthropicService: AnthropicService {
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
     }
-    if hasStructuredOutput(params.outputFormat) {
-      betaHeaders.append("structured-outputs-2025-11-13")
-    }
+    // Structured outputs are GA as of Claude 4.6 — no beta header needed.
 
     let request = try AnthropicAPI.messages.request(
       apiKey: apiKey,
@@ -288,9 +286,7 @@ public class DefaultAnthropicService: AnthropicService {
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
     }
-    if hasStructuredOutput(params.outputFormat) {
-      betaHeaders.append("structured-outputs-2025-11-13")
-    }
+    // Structured outputs are GA as of Claude 4.6 — no beta header needed.
 
     let request = try AnthropicAPI.messages.request(
       apiKey: apiKey,
@@ -375,14 +371,6 @@ public class DefaultAnthropicService: AnthropicService {
       }
       return false
     }
-  }
-
-  private func hasStructuredOutput(_ outputFormat: AnthropicOutputFormat?) -> Bool {
-    guard let outputFormat else { return false }
-    if case .jsonSchema = outputFormat {
-      return true
-    }
-    return false
   }
 
   private func debugLog(_ message: String) {

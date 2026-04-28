@@ -74,7 +74,7 @@ public class DefaultAnthropicService: AnthropicService {
         topK: params.topK,
         stopSequences: params.stopSequences,
         metadata: params.metadata,
-        outputFormat: params.outputFormat
+        outputConfig: params.outputConfig
       )
     }
 
@@ -277,7 +277,7 @@ public class DefaultAnthropicService: AnthropicService {
         topK: params.topK,
         stopSequences: params.stopSequences,
         metadata: params.metadata,
-        outputFormat: params.outputFormat
+        outputConfig: params.outputConfig
       )
     }
 

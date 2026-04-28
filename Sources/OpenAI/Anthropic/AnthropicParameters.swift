@@ -47,9 +47,10 @@ public struct AnthropicMessageParameter: Encodable {
   /// Metadata for the request
   public let metadata: AnthropicMetadata?
 
-  /// Output format for structured outputs.
+  /// Output configuration: structured-output `format` and (optionally) `effort`.
   /// Structured outputs are GA as of Claude 4.6 — no beta header needed.
-  public let outputFormat: AnthropicOutputFormat?
+  /// The legacy top-level `output_format` field was deprecated; use `output_config.format` instead.
+  public let outputConfig: AnthropicOutputConfig?
 
   public init(
     model: String,
@@ -64,7 +65,7 @@ public struct AnthropicMessageParameter: Encodable {
     topK: Int? = nil,
     stopSequences: [String]? = nil,
     metadata: AnthropicMetadata? = nil,
-    outputFormat: AnthropicOutputFormat? = nil
+    outputConfig: AnthropicOutputConfig? = nil
   ) {
     self.model = model
     self.messages = messages
@@ -78,7 +79,7 @@ public struct AnthropicMessageParameter: Encodable {
     self.topK = topK
     self.stopSequences = stopSequences
     self.metadata = metadata
-    self.outputFormat = outputFormat
+    self.outputConfig = outputConfig
   }
 
   enum CodingKeys: String, CodingKey {
@@ -94,7 +95,7 @@ public struct AnthropicMessageParameter: Encodable {
     case topK = "top_k"
     case stopSequences = "stop_sequences"
     case metadata
-    case outputFormat = "output_format"
+    case outputConfig = "output_config"
   }
 }
 
@@ -494,10 +495,32 @@ public struct AnthropicMetadata: Encodable {
   }
 }
 
+// MARK: - AnthropicOutputConfig
+
+/// Output configuration block sent as the request's `output_config` field.
+/// Replaces the deprecated top-level `output_format` parameter.
+/// Carries the structured-output `format` and may carry `effort` in the future.
+public struct AnthropicOutputConfig: Encodable {
+  /// Structured-output format (e.g. JSON schema).
+  public let format: AnthropicOutputFormat?
+
+  public init(format: AnthropicOutputFormat? = nil) {
+    self.format = format
+  }
+
+  /// Convenience initializer for a JSON-schema-formatted response.
+  public static func schema(_ schema: [String: Any]) -> AnthropicOutputConfig {
+    AnthropicOutputConfig(format: .schema(schema: schema))
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case format
+  }
+}
+
 // MARK: - AnthropicOutputFormat
 
-/// Output format specification for structured outputs.
-/// Requires beta header: anthropic-beta: structured-outputs-2025-11-13
+/// Structured-output format. Wire shape goes inside `output_config.format`.
 public enum AnthropicOutputFormat: Encodable {
   case text
   case jsonSchema(AnthropicJSONSchemaFormat)

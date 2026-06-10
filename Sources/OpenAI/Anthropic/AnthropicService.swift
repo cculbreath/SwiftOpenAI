@@ -28,6 +28,21 @@ public protocol AnthropicService {
 
   /// Retrieve a specific model
   func retrieveModel(id: String) async throws -> AnthropicModel
+
+  /// Count tokens for a prospective Messages API request
+  func countTokens(parameters: AnthropicTokenCountParameter) async throws -> AnthropicTokenCountResponse
+
+  /// Upload a file to the Files API (`POST /v1/files`, multipart/form-data)
+  func uploadFile(data: Data, filename: String, mimeType: String) async throws -> AnthropicFileMetadata
+
+  /// Retrieve metadata for an uploaded file (`GET /v1/files/{id}`)
+  func retrieveFileMetadata(id: String) async throws -> AnthropicFileMetadata
+
+  /// List uploaded files (`GET /v1/files`)
+  func listFiles() async throws -> AnthropicFileListResponse
+
+  /// Delete an uploaded file (`DELETE /v1/files/{id}`)
+  func deleteFile(id: String) async throws -> AnthropicFileDeletedResponse
 }
 
 // MARK: - DefaultAnthropicService
@@ -74,7 +89,8 @@ public class DefaultAnthropicService: AnthropicService {
         topK: params.topK,
         stopSequences: params.stopSequences,
         metadata: params.metadata,
-        outputConfig: params.outputConfig
+        outputConfig: params.outputConfig,
+        thinking: params.thinking
       )
     }
 
@@ -82,6 +98,9 @@ public class DefaultAnthropicService: AnthropicService {
     var betaHeaders: [String] = []
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
+    }
+    if hasFileDocumentSource(params.messages) {
+      betaHeaders.append(Self.filesAPIBetaHeader)
     }
     // Structured outputs are GA as of Claude 4.6 — no beta header needed.
 
@@ -277,7 +296,8 @@ public class DefaultAnthropicService: AnthropicService {
         topK: params.topK,
         stopSequences: params.stopSequences,
         metadata: params.metadata,
-        outputConfig: params.outputConfig
+        outputConfig: params.outputConfig,
+        thinking: params.thinking
       )
     }
 
@@ -285,6 +305,9 @@ public class DefaultAnthropicService: AnthropicService {
     var betaHeaders: [String] = []
     if hasWebFetchTool(params.tools) {
       betaHeaders.append("web-fetch-2025-09-10")
+    }
+    if hasFileDocumentSource(params.messages) {
+      betaHeaders.append(Self.filesAPIBetaHeader)
     }
     // Structured outputs are GA as of Claude 4.6 — no beta header needed.
 
@@ -346,6 +369,106 @@ public class DefaultAnthropicService: AnthropicService {
       method: .get
     )
 
+    return try await perform(request)
+  }
+
+  // MARK: - Token Counting
+
+  public func countTokens(parameters: AnthropicTokenCountParameter) async throws -> AnthropicTokenCountResponse {
+    // Mirror messages()/messagesStream(): counted requests must carry the same
+    // beta headers as the request that will actually be sent, or counts diverge.
+    var betaHeaders: [String] = []
+    if hasWebFetchTool(parameters.tools) {
+      betaHeaders.append("web-fetch-2025-09-10")
+    }
+    if hasFileDocumentSource(parameters.messages) {
+      betaHeaders.append(Self.filesAPIBetaHeader)
+    }
+
+    let request = try AnthropicAPI.countTokens.request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .post,
+      params: parameters,
+      betaHeaders: betaHeaders.isEmpty ? nil : betaHeaders
+    )
+
+    if debugEnabled {
+      debugLog("[Anthropic] Request: \(request.url?.absoluteString ?? "nil")")
+    }
+
+    return try await perform(request)
+  }
+
+  // MARK: - Files
+
+  public func uploadFile(data: Data, filename: String, mimeType: String) async throws -> AnthropicFileMetadata {
+    let boundary = UUID().uuidString
+    let body = MultipartFormDataBuilder(
+      boundary: boundary,
+      entries: [
+        .file(paramName: "file", fileName: filename, fileData: data, contentType: mimeType),
+      ]
+    ).build()
+
+    let request = try AnthropicAPI.files(.upload).multipartRequest(
+      apiKey: apiKey,
+      environment: environment,
+      method: .post,
+      boundary: boundary,
+      body: body,
+      betaHeaders: [Self.filesAPIBetaHeader]
+    )
+
+    if debugEnabled {
+      debugLog("[Anthropic] Uploading file '\(filename)' (\(data.count) bytes, \(mimeType))")
+    }
+
+    return try await perform(request)
+  }
+
+  public func retrieveFileMetadata(id: String) async throws -> AnthropicFileMetadata {
+    let request = try AnthropicAPI.files(.retrieveMetadata(fileID: id)).request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .get,
+      betaHeaders: [Self.filesAPIBetaHeader]
+    )
+
+    return try await perform(request)
+  }
+
+  public func listFiles() async throws -> AnthropicFileListResponse {
+    let request = try AnthropicAPI.files(.list).request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .get,
+      betaHeaders: [Self.filesAPIBetaHeader]
+    )
+
+    return try await perform(request)
+  }
+
+  public func deleteFile(id: String) async throws -> AnthropicFileDeletedResponse {
+    let request = try AnthropicAPI.files(.delete(fileID: id)).request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .delete,
+      betaHeaders: [Self.filesAPIBetaHeader]
+    )
+
+    return try await perform(request)
+  }
+
+  // MARK: - Helpers
+
+  /// Beta header required for all Files API (`/v1/files`) endpoints, and for
+  /// `/v1/messages` requests whose content references an uploaded file
+  /// (e.g. a document block with a `{"type": "file", "file_id": ...}` source).
+  private static let filesAPIBetaHeader = "files-api-2025-04-14"
+
+  /// Executes a request and decodes the response, throwing on non-2xx status codes.
+  private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
     let httpRequest = try HTTPRequest(from: request)
     let (data, response) = try await httpClient.data(for: httpRequest)
 
@@ -358,10 +481,8 @@ public class DefaultAnthropicService: AnthropicService {
       )
     }
 
-    return try decoder.decode(AnthropicModel.self, from: data)
+    return try decoder.decode(T.self, from: data)
   }
-
-  // MARK: - Helpers
 
   private func hasWebFetchTool(_ tools: [AnthropicTool]?) -> Bool {
     guard let tools else { return false }
@@ -370,6 +491,21 @@ public class DefaultAnthropicService: AnthropicService {
         return serverTool.type == "web_fetch_20250910"
       }
       return false
+    }
+  }
+
+  /// Detects whether any message contains a document block backed by a Files API
+  /// file source, which requires the `files-api-2025-04-14` beta header.
+  private func hasFileDocumentSource(_ messages: [AnthropicMessage]) -> Bool {
+    messages.contains { message in
+      guard case .blocks(let blocks) = message.content else { return false }
+      return blocks.contains { block in
+        if case .document(let documentBlock) = block,
+           case .file = documentBlock.source {
+          return true
+        }
+        return false
+      }
     }
   }
 

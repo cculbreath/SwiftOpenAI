@@ -11,11 +11,20 @@ import Foundation
 
 enum AnthropicAPI {
   case messages
+  case countTokens
   case models(ModelCategory)
+  case files(FileCategory)
 
   enum ModelCategory {
     case list
     case retrieve(modelID: String)
+  }
+
+  enum FileCategory {
+    case upload
+    case list
+    case retrieveMetadata(fileID: String)
+    case delete(fileID: String)
   }
 }
 
@@ -45,12 +54,21 @@ extension AnthropicAPI {
     switch self {
     case .messages:
       return "\(version)/messages"
+    case .countTokens:
+      return "\(version)/messages/count_tokens"
     case .models(let category):
       switch category {
       case .list:
         return "\(version)/models"
       case .retrieve(let modelID):
         return "\(version)/models/\(modelID)"
+      }
+    case .files(let category):
+      switch category {
+      case .upload, .list:
+        return "\(version)/files"
+      case .retrieveMetadata(let fileID), .delete(let fileID):
+        return "\(version)/files/\(fileID)"
       }
     }
   }
@@ -97,6 +115,40 @@ extension AnthropicAPI {
       encoder.keyEncodingStrategy = .convertToSnakeCase
       request.httpBody = try encoder.encode(params)
     }
+
+    return request
+  }
+
+  /// Builds a multipart/form-data request (used by the Files API upload endpoint).
+  func multipartRequest(
+    apiKey: String,
+    environment: AnthropicEnvironment,
+    method: HTTPMethod,
+    boundary: String,
+    body: Data,
+    betaHeaders: [String]? = nil
+  ) throws -> URLRequest {
+    let finalPath = path(in: environment)
+    guard var components = URLComponents(string: environment.baseURL) else {
+      throw URLError(.badURL)
+    }
+    components.path = finalPath
+
+    guard let url = components.url else {
+      throw URLError(.badURL)
+    }
+
+    var request = URLRequest(url: url)
+    request.addValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    request.addValue(apiKey, forHTTPHeaderField: "x-api-key")
+    request.addValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+
+    if let betaHeaders, !betaHeaders.isEmpty {
+      request.addValue(betaHeaders.joined(separator: ","), forHTTPHeaderField: "anthropic-beta")
+    }
+
+    request.httpMethod = method.rawValue
+    request.httpBody = body
 
     return request
   }

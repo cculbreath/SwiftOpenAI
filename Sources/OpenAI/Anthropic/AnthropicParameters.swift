@@ -52,6 +52,10 @@ public struct AnthropicMessageParameter: Encodable {
   /// The legacy top-level `output_format` field was deprecated; use `output_config.format` instead.
   public let outputConfig: AnthropicOutputConfig?
 
+  /// Thinking configuration. When set, encodes the `thinking` request field
+  /// (e.g. `{"type": "adaptive"}`). Omitted from the wire when nil.
+  public let thinking: AnthropicThinking?
+
   public init(
     model: String,
     messages: [AnthropicMessage],
@@ -65,7 +69,8 @@ public struct AnthropicMessageParameter: Encodable {
     topK: Int? = nil,
     stopSequences: [String]? = nil,
     metadata: AnthropicMetadata? = nil,
-    outputConfig: AnthropicOutputConfig? = nil
+    outputConfig: AnthropicOutputConfig? = nil,
+    thinking: AnthropicThinking? = nil
   ) {
     self.model = model
     self.messages = messages
@@ -80,6 +85,7 @@ public struct AnthropicMessageParameter: Encodable {
     self.stopSequences = stopSequences
     self.metadata = metadata
     self.outputConfig = outputConfig
+    self.thinking = thinking
   }
 
   enum CodingKeys: String, CodingKey {
@@ -96,6 +102,29 @@ public struct AnthropicMessageParameter: Encodable {
     case stopSequences = "stop_sequences"
     case metadata
     case outputConfig = "output_config"
+    case thinking
+  }
+}
+
+// MARK: - AnthropicThinking
+
+/// Thinking configuration for the `thinking` request field.
+/// Modeled as an enum so additional variants can be added later.
+public enum AnthropicThinking: Encodable {
+  /// Adaptive thinking: the model decides when and how much to think.
+  /// Encodes as `{"type": "adaptive"}`.
+  case adaptive
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    switch self {
+    case .adaptive:
+      try container.encode("adaptive", forKey: .type)
+    }
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case type
   }
 }
 
@@ -137,11 +166,15 @@ public struct AnthropicSystemBlock: Encodable {
 }
 
 /// Cache control directive for prompt caching
-public struct AnthropicCacheControl: Encodable {
+public struct AnthropicCacheControl: Codable {
   public let type: String
 
-  public init(type: String = "ephemeral") {
+  /// Optional cache TTL ("5m" default when omitted, or "1h").
+  public let ttl: String?
+
+  public init(type: String = "ephemeral", ttl: String? = nil) {
     self.type = type
+    self.ttl = ttl
   }
 
   public static let ephemeral = AnthropicCacheControl(type: "ephemeral")
@@ -286,20 +319,36 @@ public enum AnthropicContentBlock: Codable {
 public struct AnthropicTextBlock: Codable {
   public let type: String
   public let text: String
+  public let cacheControl: AnthropicCacheControl?
 
-  public init(text: String) {
+  public init(text: String, cacheControl: AnthropicCacheControl? = nil) {
     self.type = "text"
     self.text = text
+    self.cacheControl = cacheControl
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case text
+    case cacheControl = "cache_control"
   }
 }
 
 public struct AnthropicImageBlock: Codable {
   public let type: String
   public let source: AnthropicImageSource
+  public let cacheControl: AnthropicCacheControl?
 
-  public init(source: AnthropicImageSource) {
+  public init(source: AnthropicImageSource, cacheControl: AnthropicCacheControl? = nil) {
     self.type = "image"
     self.source = source
+    self.cacheControl = cacheControl
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case source
+    case cacheControl = "cache_control"
   }
 }
 
@@ -324,28 +373,82 @@ public struct AnthropicImageSource: Codable {
 public struct AnthropicDocumentBlock: Codable {
   public let type: String
   public let source: AnthropicDocumentSource
+  public let cacheControl: AnthropicCacheControl?
 
-  public init(source: AnthropicDocumentSource) {
+  public init(source: AnthropicDocumentSource, cacheControl: AnthropicCacheControl? = nil) {
     self.type = "document"
     self.source = source
-  }
-}
-
-public struct AnthropicDocumentSource: Codable {
-  public let type: String
-  public let mediaType: String
-  public let data: String
-
-  public init(mediaType: String, data: String) {
-    self.type = "base64"
-    self.mediaType = mediaType
-    self.data = data
+    self.cacheControl = cacheControl
   }
 
   enum CodingKeys: String, CodingKey {
     case type
+    case source
+    case cacheControl = "cache_control"
+  }
+}
+
+/// The source for a document content block.
+///
+/// Supports three wire shapes:
+/// - `.base64` → `{"type": "base64", "media_type": ..., "data": ...}`
+/// - `.url` → `{"type": "url", "url": ...}`
+/// - `.file` → `{"type": "file", "file_id": ...}` — references a file uploaded via the
+///   Files API (requires the `files-api-2025-04-14` beta header on the request).
+public enum AnthropicDocumentSource: Codable {
+  case base64(mediaType: String, data: String)
+  case url(String)
+  case file(id: String)
+
+  /// Creates a base64 document source.
+  public init(mediaType: String, data: String) {
+    self = .base64(mediaType: mediaType, data: data)
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case type
     case mediaType = "media_type"
     case data
+    case url
+    case fileId = "file_id"
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(String.self, forKey: .type)
+
+    switch type {
+    case "base64":
+      self = .base64(
+        mediaType: try container.decode(String.self, forKey: .mediaType),
+        data: try container.decode(String.self, forKey: .data)
+      )
+    case "url":
+      self = .url(try container.decode(String.self, forKey: .url))
+    case "file":
+      self = .file(id: try container.decode(String.self, forKey: .fileId))
+    default:
+      throw DecodingError.dataCorruptedError(
+        forKey: .type, in: container,
+        debugDescription: "Unknown document source type: \(type)"
+      )
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    switch self {
+    case .base64(let mediaType, let data):
+      try container.encode("base64", forKey: .type)
+      try container.encode(mediaType, forKey: .mediaType)
+      try container.encode(data, forKey: .data)
+    case .url(let url):
+      try container.encode("url", forKey: .type)
+      try container.encode(url, forKey: .url)
+    case .file(let id):
+      try container.encode("file", forKey: .type)
+      try container.encode(id, forKey: .fileId)
+    }
   }
 }
 
@@ -375,12 +478,19 @@ public struct AnthropicToolResultBlock: Codable {
   public let toolUseId: String
   public let content: String
   public let isError: Bool?
+  public let cacheControl: AnthropicCacheControl?
 
-  public init(toolUseId: String, content: String, isError: Bool = false) {
+  public init(
+    toolUseId: String,
+    content: String,
+    isError: Bool = false,
+    cacheControl: AnthropicCacheControl? = nil
+  ) {
     self.type = "tool_result"
     self.toolUseId = toolUseId
     self.content = content
     self.isError = isError ? true : nil
+    self.cacheControl = cacheControl
   }
 
   enum CodingKeys: String, CodingKey {
@@ -388,6 +498,7 @@ public struct AnthropicToolResultBlock: Codable {
     case toolUseId = "tool_use_id"
     case content
     case isError = "is_error"
+    case cacheControl = "cache_control"
   }
 }
 
@@ -413,17 +524,25 @@ public struct AnthropicFunctionTool: Encodable {
   public let name: String
   public let description: String?
   public let inputSchema: [String: AnthropicDynamicValue]
+  public let cacheControl: AnthropicCacheControl?
 
-  public init(name: String, description: String? = nil, inputSchema: [String: Any]) {
+  public init(
+    name: String,
+    description: String? = nil,
+    inputSchema: [String: Any],
+    cacheControl: AnthropicCacheControl? = nil
+  ) {
     self.name = name
     self.description = description
     self.inputSchema = inputSchema.mapValues { AnthropicDynamicValue($0) }
+    self.cacheControl = cacheControl
   }
 
   enum CodingKeys: String, CodingKey {
     case name
     case description
     case inputSchema = "input_schema"
+    case cacheControl = "cache_control"
   }
 }
 
@@ -499,13 +618,17 @@ public struct AnthropicMetadata: Encodable {
 
 /// Output configuration block sent as the request's `output_config` field.
 /// Replaces the deprecated top-level `output_format` parameter.
-/// Carries the structured-output `format` and may carry `effort` in the future.
+/// Carries the structured-output `format` and (optionally) `effort`.
 public struct AnthropicOutputConfig: Encodable {
   /// Structured-output format (e.g. JSON schema).
   public let format: AnthropicOutputFormat?
 
-  public init(format: AnthropicOutputFormat? = nil) {
+  /// Effort level controlling thinking depth and overall token spend.
+  public let effort: AnthropicEffort?
+
+  public init(format: AnthropicOutputFormat? = nil, effort: AnthropicEffort? = nil) {
     self.format = format
+    self.effort = effort
   }
 
   /// Convenience initializer for a JSON-schema-formatted response.
@@ -513,9 +636,26 @@ public struct AnthropicOutputConfig: Encodable {
     AnthropicOutputConfig(format: .schema(schema: schema))
   }
 
+  /// Convenience initializer for an effort-only output configuration.
+  public static func effort(_ effort: AnthropicEffort) -> AnthropicOutputConfig {
+    AnthropicOutputConfig(effort: effort)
+  }
+
   enum CodingKeys: String, CodingKey {
     case format
+    case effort
   }
+}
+
+// MARK: - AnthropicEffort
+
+/// Effort level for `output_config.effort`.
+public enum AnthropicEffort: String, Encodable {
+  case low
+  case medium
+  case high
+  case xhigh
+  case max
 }
 
 // MARK: - AnthropicOutputFormat
@@ -664,6 +804,87 @@ public struct AnthropicModel: Decodable, Identifiable {
     case displayName = "display_name"
     case type
   }
+}
+
+// MARK: - Token Counting
+
+/// Parameters for `POST /v1/messages/count_tokens`.
+/// Reuses the Messages API parameter types so a prospective request can be
+/// counted exactly as it would be sent.
+public struct AnthropicTokenCountParameter: Encodable {
+  /// The model the request will be sent to (token counts are model-specific).
+  public let model: String
+
+  /// The messages in the conversation.
+  public let messages: [AnthropicMessage]
+
+  /// System prompt.
+  public let system: AnthropicSystemContent?
+
+  /// Tools available for the model to use.
+  public let tools: [AnthropicTool]?
+
+  public init(
+    model: String,
+    messages: [AnthropicMessage],
+    system: AnthropicSystemContent? = nil,
+    tools: [AnthropicTool]? = nil
+  ) {
+    self.model = model
+    self.messages = messages
+    self.system = system
+    self.tools = tools
+  }
+}
+
+/// Response from `POST /v1/messages/count_tokens`.
+public struct AnthropicTokenCountResponse: Decodable {
+  /// The total number of input tokens for the provided request.
+  public let inputTokens: Int
+
+  enum CodingKeys: String, CodingKey {
+    case inputTokens = "input_tokens"
+  }
+}
+
+// MARK: - Files API
+
+/// Metadata for a file stored via the Anthropic Files API (`/v1/files`).
+public struct AnthropicFileMetadata: Decodable, Identifiable {
+  public let id: String
+  public let filename: String
+  public let mimeType: String
+  public let sizeBytes: Int
+  public let createdAt: String
+
+  enum CodingKeys: String, CodingKey {
+    case id
+    case filename
+    case mimeType = "mime_type"
+    case sizeBytes = "size_bytes"
+    case createdAt = "created_at"
+  }
+}
+
+/// Response from the Files API list endpoint (`GET /v1/files`).
+public struct AnthropicFileListResponse: Decodable {
+  public let data: [AnthropicFileMetadata]
+  public let firstId: String?
+  public let hasMore: Bool
+  public let lastId: String?
+
+  enum CodingKeys: String, CodingKey {
+    case data
+    case firstId = "first_id"
+    case hasMore = "has_more"
+    case lastId = "last_id"
+  }
+}
+
+/// Response from the Files API delete endpoint (`DELETE /v1/files/{id}`).
+public struct AnthropicFileDeletedResponse: Decodable {
+  public let id: String
+  public let type: String?
 }
 
 // MARK: - AnthropicDynamicValue

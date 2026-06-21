@@ -113,6 +113,14 @@ extension AnthropicAPI {
     if let params {
       let encoder = JSONEncoder()
       encoder.keyEncodingStrategy = .convertToSnakeCase
+      // Deterministic key ordering is REQUIRED for prompt caching.
+      // Setting any keyEncodingStrategy makes JSONEncoder buffer converted keys
+      // into an unordered map and emit them in (process-seeded, buffer-perturbed)
+      // hash order — so the same content serializes with different key order
+      // between requests, shifting the wire bytes and invalidating Anthropic's
+      // prefix cache. `.sortedKeys` pins every object to a canonical alphabetical
+      // order so identical content always produces identical bytes.
+      encoder.outputFormatting = [.sortedKeys]
       request.httpBody = try encoder.encode(params)
     }
 

@@ -74,6 +74,30 @@ extension AnthropicAPI {
   }
 }
 
+// MARK: - AnthropicRequestBody
+
+/// The single sanctioned serializer for Anthropic request bodies.
+///
+/// `.convertToSnakeCase` and `.sortedKeys` MUST travel together, and this is the
+/// only place either is configured. Setting any `keyEncodingStrategy` makes
+/// `JSONEncoder` buffer the converted keys into an unordered map and emit them in
+/// process-seeded (and buffer-perturbed) hash order; without `.sortedKeys`,
+/// identical content serializes with different key order between requests,
+/// shifting the wire bytes and silently invalidating Anthropic's prompt-cache
+/// prefix on nearly every turn.
+///
+/// Every Anthropic request body goes through `encode(_:)` so deterministic
+/// ordering can never be forgotten. Do not construct a bare `JSONEncoder` for an
+/// Anthropic body anywhere else.
+enum AnthropicRequestBody {
+  static func encode(_ value: any Encodable) throws -> Data {
+    let encoder = JSONEncoder()
+    encoder.keyEncodingStrategy = .convertToSnakeCase
+    encoder.outputFormatting = [.sortedKeys]
+    return try encoder.encode(value)
+  }
+}
+
 // MARK: - Request Building
 
 extension AnthropicAPI {
@@ -111,17 +135,10 @@ extension AnthropicAPI {
     request.httpMethod = method.rawValue
 
     if let params {
-      let encoder = JSONEncoder()
-      encoder.keyEncodingStrategy = .convertToSnakeCase
-      // Deterministic key ordering is REQUIRED for prompt caching.
-      // Setting any keyEncodingStrategy makes JSONEncoder buffer converted keys
-      // into an unordered map and emit them in (process-seeded, buffer-perturbed)
-      // hash order — so the same content serializes with different key order
-      // between requests, shifting the wire bytes and invalidating Anthropic's
-      // prefix cache. `.sortedKeys` pins every object to a canonical alphabetical
-      // order so identical content always produces identical bytes.
-      encoder.outputFormatting = [.sortedKeys]
-      request.httpBody = try encoder.encode(params)
+      // Single sanctioned serializer — see AnthropicRequestBody below. Never
+      // build a bare JSONEncoder for an Anthropic body; sorting must not be
+      // omittable.
+      request.httpBody = try AnthropicRequestBody.encode(params)
     }
 
     return request

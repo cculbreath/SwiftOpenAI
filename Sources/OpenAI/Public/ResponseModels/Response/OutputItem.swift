@@ -178,10 +178,12 @@ public enum OutputItem: Decodable {
     public struct Annotation: Decodable {
       /// The type of annotation (e.g., "url_citation", "file_citation")
       public let type: String
-      /// The start index of the annotation in the text
-      public let startIndex: Int
-      /// The end index of the annotation in the text
-      public let endIndex: Int
+      /// The start index of the annotation in the text. Present for `url_citation`;
+      /// absent for `file_citation` (which positions via `index` instead).
+      public let startIndex: Int?
+      /// The end index of the annotation in the text. Present for `url_citation`;
+      /// absent for `file_citation`.
+      public let endIndex: Int?
       /// The URL for url_citation annotations
       public let url: String?
       /// The title for url_citation annotations

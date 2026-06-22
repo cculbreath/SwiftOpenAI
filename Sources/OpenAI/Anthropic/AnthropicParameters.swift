@@ -525,17 +525,25 @@ public struct AnthropicFunctionTool: Encodable {
   public let description: String?
   public let inputSchema: [String: AnthropicDynamicValue]
   public let cacheControl: AnthropicCacheControl?
+  /// Strict tool use (GA, no beta header). When `true`, Anthropic enforces the
+  /// `input_schema` server-side so `tool_use.input` always validates. Requires a
+  /// strict-compatible schema (every object `additionalProperties: false`, every
+  /// property in `required`). Encoded only when non-nil, so non-strict tools keep
+  /// byte-identical wire output (prompt-cache prefix unaffected).
+  public let strict: Bool?
 
   public init(
     name: String,
     description: String? = nil,
     inputSchema: [String: Any],
-    cacheControl: AnthropicCacheControl? = nil
+    cacheControl: AnthropicCacheControl? = nil,
+    strict: Bool? = nil
   ) {
     self.name = name
     self.description = description
     self.inputSchema = inputSchema.mapValues { AnthropicDynamicValue($0) }
     self.cacheControl = cacheControl
+    self.strict = strict
   }
 
   enum CodingKeys: String, CodingKey {
@@ -543,6 +551,7 @@ public struct AnthropicFunctionTool: Encodable {
     case description
     case inputSchema = "input_schema"
     case cacheControl = "cache_control"
+    case strict
   }
 }
 

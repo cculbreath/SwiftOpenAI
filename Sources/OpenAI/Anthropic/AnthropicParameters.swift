@@ -270,6 +270,9 @@ public enum AnthropicContentBlock: Codable {
   case document(AnthropicDocumentBlock)
   case toolUse(AnthropicToolUseBlock)
   case toolResult(AnthropicToolResultBlock)
+  case serverToolUse(AnthropicServerToolUseBlock)
+  case webSearchToolResult(AnthropicWebSearchToolResultBlock)
+  case webFetchToolResult(AnthropicWebFetchToolResultBlock)
 
   private enum CodingKeys: String, CodingKey {
     case type
@@ -286,6 +289,12 @@ public enum AnthropicContentBlock: Codable {
     case .toolUse(let block):
       try block.encode(to: encoder)
     case .toolResult(let block):
+      try block.encode(to: encoder)
+    case .serverToolUse(let block):
+      try block.encode(to: encoder)
+    case .webSearchToolResult(let block):
+      try block.encode(to: encoder)
+    case .webFetchToolResult(let block):
       try block.encode(to: encoder)
     }
   }
@@ -305,6 +314,12 @@ public enum AnthropicContentBlock: Codable {
       self = .toolUse(try AnthropicToolUseBlock(from: decoder))
     case "tool_result":
       self = .toolResult(try AnthropicToolResultBlock(from: decoder))
+    case "server_tool_use":
+      self = .serverToolUse(try AnthropicServerToolUseBlock(from: decoder))
+    case "web_search_tool_result":
+      self = .webSearchToolResult(try AnthropicWebSearchToolResultBlock(from: decoder))
+    case "web_fetch_tool_result":
+      self = .webFetchToolResult(try AnthropicWebFetchToolResultBlock(from: decoder))
     default:
       throw DecodingError.dataCorruptedError(
         forKey: .type, in: container,
@@ -373,30 +388,60 @@ public struct AnthropicImageSource: Codable {
 public struct AnthropicDocumentBlock: Codable {
   public let type: String
   public let source: AnthropicDocumentSource
+
+  /// Optional document title. Also present on documents returned inside
+  /// `web_fetch_result` content — preserved verbatim for multi-turn echo.
+  public let title: String?
+
+  /// Citations toggle for this document (`{"enabled": bool}`).
+  public let citations: AnthropicCitationsConfig?
+
   public let cacheControl: AnthropicCacheControl?
 
-  public init(source: AnthropicDocumentSource, cacheControl: AnthropicCacheControl? = nil) {
+  public init(
+    source: AnthropicDocumentSource,
+    title: String? = nil,
+    citations: AnthropicCitationsConfig? = nil,
+    cacheControl: AnthropicCacheControl? = nil
+  ) {
     self.type = "document"
     self.source = source
+    self.title = title
+    self.citations = citations
     self.cacheControl = cacheControl
   }
 
   enum CodingKeys: String, CodingKey {
     case type
     case source
+    case title
+    case citations
     case cacheControl = "cache_control"
+  }
+}
+
+/// Citations toggle (`{"enabled": bool}`). Used both on `document` content
+/// blocks and as the `citations` option of the web_fetch server tool.
+public struct AnthropicCitationsConfig: Codable {
+  public let enabled: Bool
+
+  public init(enabled: Bool) {
+    self.enabled = enabled
   }
 }
 
 /// The source for a document content block.
 ///
-/// Supports three wire shapes:
+/// Supports four wire shapes:
 /// - `.base64` → `{"type": "base64", "media_type": ..., "data": ...}`
+/// - `.text` → `{"type": "text", "media_type": "text/plain", "data": ...}` — plain-text
+///   documents; also the shape of documents returned by the web_fetch server tool.
 /// - `.url` → `{"type": "url", "url": ...}`
 /// - `.file` → `{"type": "file", "file_id": ...}` — references a file uploaded via the
 ///   Files API (requires the `files-api-2025-04-14` beta header on the request).
 public enum AnthropicDocumentSource: Codable {
   case base64(mediaType: String, data: String)
+  case text(mediaType: String, data: String)
   case url(String)
   case file(id: String)
 
@@ -423,6 +468,11 @@ public enum AnthropicDocumentSource: Codable {
         mediaType: try container.decode(String.self, forKey: .mediaType),
         data: try container.decode(String.self, forKey: .data)
       )
+    case "text":
+      self = .text(
+        mediaType: try container.decode(String.self, forKey: .mediaType),
+        data: try container.decode(String.self, forKey: .data)
+      )
     case "url":
       self = .url(try container.decode(String.self, forKey: .url))
     case "file":
@@ -440,6 +490,10 @@ public enum AnthropicDocumentSource: Codable {
     switch self {
     case .base64(let mediaType, let data):
       try container.encode("base64", forKey: .type)
+      try container.encode(mediaType, forKey: .mediaType)
+      try container.encode(data, forKey: .data)
+    case .text(let mediaType, let data):
+      try container.encode("text", forKey: .type)
       try container.encode(mediaType, forKey: .mediaType)
       try container.encode(data, forKey: .data)
     case .url(let url):
@@ -502,6 +556,221 @@ public struct AnthropicToolResultBlock: Codable {
   }
 }
 
+// MARK: - Server Tool Content Blocks
+
+/// A server-side tool invocation (e.g. web_search, web_fetch) in assistant content.
+/// Unlike `tool_use`, the tool runs on Anthropic's infrastructure — the client never
+/// executes it or sends a `tool_result`. In agentic loops the block is decoded from
+/// the response and echoed back verbatim in the next request's assistant message.
+public struct AnthropicServerToolUseBlock: Codable {
+  public let type: String
+  public let id: String
+  public let name: String
+  public let input: [String: AnthropicDynamicValue]
+
+  public init(id: String, name: String, input: [String: Any]) {
+    self.type = "server_tool_use"
+    self.id = id
+    self.name = name
+    self.input = input.mapValues { AnthropicDynamicValue($0) }
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case id
+    case name
+    case input
+  }
+}
+
+/// Result block for the web_search server tool. `content` is either an array of
+/// search results or a single error object — the decode branches on the JSON shape.
+/// Echoed back verbatim (including `encrypted_content`) in multi-turn loops.
+public struct AnthropicWebSearchToolResultBlock: Codable {
+  public let type: String
+  public let toolUseId: String
+  public let content: AnthropicWebSearchToolResultContent
+
+  public init(toolUseId: String, content: AnthropicWebSearchToolResultContent) {
+    self.type = "web_search_tool_result"
+    self.toolUseId = toolUseId
+    self.content = content
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case toolUseId = "tool_use_id"
+    case content
+  }
+}
+
+/// Content of a `web_search_tool_result` block: an ARRAY of results on success,
+/// or a single error OBJECT on failure.
+public enum AnthropicWebSearchToolResultContent: Codable {
+  case results([AnthropicWebSearchResult])
+  case error(AnthropicWebSearchToolResultError)
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.singleValueContainer()
+    if let results = try? container.decode([AnthropicWebSearchResult].self) {
+      self = .results(results)
+    } else {
+      self = .error(try container.decode(AnthropicWebSearchToolResultError.self))
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var container = encoder.singleValueContainer()
+    switch self {
+    case .results(let results):
+      try container.encode(results)
+    case .error(let error):
+      try container.encode(error)
+    }
+  }
+}
+
+/// A single web search result. `encryptedContent` must be preserved verbatim —
+/// it is what lets the model cite the page when the block is echoed back.
+public struct AnthropicWebSearchResult: Codable {
+  public let type: String
+  public let url: String
+  public let title: String
+  public let encryptedContent: String
+  public let pageAge: String?
+
+  public init(url: String, title: String, encryptedContent: String, pageAge: String? = nil) {
+    self.type = "web_search_result"
+    self.url = url
+    self.title = title
+    self.encryptedContent = encryptedContent
+    self.pageAge = pageAge
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case url
+    case title
+    case encryptedContent = "encrypted_content"
+    case pageAge = "page_age"
+  }
+}
+
+/// Error object for a failed web search (e.g. "max_uses_exceeded",
+/// "too_many_requests"). `errorCode` is a raw string passthrough so unknown
+/// codes survive decode and re-encode unchanged.
+public struct AnthropicWebSearchToolResultError: Codable {
+  public let type: String
+  public let errorCode: String
+
+  public init(errorCode: String) {
+    self.type = "web_search_tool_result_error"
+    self.errorCode = errorCode
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case errorCode = "error_code"
+  }
+}
+
+/// Result block for the web_fetch server tool. `content` is a single object:
+/// either a fetched document or an error — the decode branches on its `type`.
+public struct AnthropicWebFetchToolResultBlock: Codable {
+  public let type: String
+  public let toolUseId: String
+  public let content: AnthropicWebFetchToolResultContent
+
+  public init(toolUseId: String, content: AnthropicWebFetchToolResultContent) {
+    self.type = "web_fetch_tool_result"
+    self.toolUseId = toolUseId
+    self.content = content
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case toolUseId = "tool_use_id"
+    case content
+  }
+}
+
+/// Content of a `web_fetch_tool_result` block: a fetched document on success,
+/// or an error object on failure.
+public enum AnthropicWebFetchToolResultContent: Codable {
+  case fetchResult(AnthropicWebFetchResult)
+  case error(AnthropicWebFetchToolResultError)
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(String.self, forKey: .type)
+
+    switch type {
+    case "web_fetch_result":
+      self = .fetchResult(try AnthropicWebFetchResult(from: decoder))
+    case "web_fetch_tool_result_error":
+      self = .error(try AnthropicWebFetchToolResultError(from: decoder))
+    default:
+      throw DecodingError.dataCorruptedError(
+        forKey: .type, in: container,
+        debugDescription: "Unknown web_fetch_tool_result content type: \(type)"
+      )
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    switch self {
+    case .fetchResult(let result):
+      try result.encode(to: encoder)
+    case .error(let error):
+      try error.encode(to: encoder)
+    }
+  }
+}
+
+/// A successfully fetched page: the content arrives as a `document` block
+/// (plain-text source), preserved verbatim for multi-turn echo.
+public struct AnthropicWebFetchResult: Codable {
+  public let type: String
+  public let url: String
+  public let content: AnthropicDocumentBlock
+  public let retrievedAt: String?
+
+  public init(url: String, content: AnthropicDocumentBlock, retrievedAt: String? = nil) {
+    self.type = "web_fetch_result"
+    self.url = url
+    self.content = content
+    self.retrievedAt = retrievedAt
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case url
+    case content
+    case retrievedAt = "retrieved_at"
+  }
+}
+
+/// Error object for a failed web fetch (e.g. "url_not_accessible",
+/// "max_uses_exceeded"). `errorCode` is a raw string passthrough.
+public struct AnthropicWebFetchToolResultError: Codable {
+  public let type: String
+  public let errorCode: String
+
+  public init(errorCode: String) {
+    self.type = "web_fetch_tool_result_error"
+    self.errorCode = errorCode
+  }
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case errorCode = "error_code"
+  }
+}
+
 // MARK: - AnthropicTool
 
 /// Tool definition for function calling or server-side tools.
@@ -555,32 +824,149 @@ public struct AnthropicFunctionTool: Encodable {
   }
 }
 
-/// Server-side tools provided by Anthropic.
+/// Server-side tools provided by Anthropic — executed on Anthropic's
+/// infrastructure, declared without an `input_schema`.
+///
+/// A single envelope covers all server tools: the versioned `type` string
+/// selects the tool, and only the option fields relevant to that tool should be
+/// set (every option is optional and omitted from the wire when nil, so
+/// existing declarations keep byte-identical encoding). Use the `webSearch` /
+/// `webFetch` factories; the memberwise initializer remains available for
+/// future server tools.
 public struct AnthropicServerTool: Encodable {
+  /// Versioned tool type (e.g. "web_search_20260209").
   public let type: String
+
+  /// Tool name (e.g. "web_search").
   public let name: String?
+
+  /// Maximum number of tool invocations per request.
   public let maxUses: Int?
 
-  public init(type: String, name: String? = nil, maxUses: Int? = nil) {
+  /// Only touch these domains. Mutually exclusive with `blockedDomains` —
+  /// the API rejects requests that set both.
+  public let allowedDomains: [String]?
+
+  /// Never touch these domains. Mutually exclusive with `allowedDomains`.
+  public let blockedDomains: [String]?
+
+  /// Approximate user location for localized results (web_search only).
+  public let userLocation: AnthropicUserLocation?
+
+  /// Citations toggle for fetched documents (web_fetch only).
+  public let citations: AnthropicCitationsConfig?
+
+  /// Token cap on fetched page content (web_fetch only).
+  public let maxContentTokens: Int?
+
+  public let cacheControl: AnthropicCacheControl?
+
+  public init(
+    type: String,
+    name: String? = nil,
+    maxUses: Int? = nil,
+    allowedDomains: [String]? = nil,
+    blockedDomains: [String]? = nil,
+    userLocation: AnthropicUserLocation? = nil,
+    citations: AnthropicCitationsConfig? = nil,
+    maxContentTokens: Int? = nil,
+    cacheControl: AnthropicCacheControl? = nil
+  ) {
     self.type = type
     self.name = name
     self.maxUses = maxUses
+    self.allowedDomains = allowedDomains
+    self.blockedDomains = blockedDomains
+    self.userLocation = userLocation
+    self.citations = citations
+    self.maxContentTokens = maxContentTokens
+    self.cacheControl = cacheControl
   }
 
-  /// Web search tool
-  public static func webSearch(name: String = "web_search", maxUses: Int? = 5) -> AnthropicServerTool {
-    AnthropicServerTool(type: "web_search_20250305", name: name, maxUses: maxUses)
+  /// Web search server tool: `{"type": "web_search_20260209", "name": "web_search"}`.
+  /// GA — no beta header. Older models use the basic variant type
+  /// "web_search_20250305" (pass it via `type:`).
+  public static func webSearch(
+    type: String = "web_search_20260209",
+    name: String = "web_search",
+    maxUses: Int? = nil,
+    allowedDomains: [String]? = nil,
+    blockedDomains: [String]? = nil,
+    userLocation: AnthropicUserLocation? = nil,
+    cacheControl: AnthropicCacheControl? = nil
+  ) -> AnthropicServerTool {
+    AnthropicServerTool(
+      type: type,
+      name: name,
+      maxUses: maxUses,
+      allowedDomains: allowedDomains,
+      blockedDomains: blockedDomains,
+      userLocation: userLocation,
+      cacheControl: cacheControl
+    )
   }
 
-  /// Web fetch tool (requires beta header)
-  public static func webFetch(name: String = "web_fetch", maxUses: Int? = nil) -> AnthropicServerTool {
-    AnthropicServerTool(type: "web_fetch_20250910", name: name, maxUses: maxUses)
+  /// Web fetch server tool: `{"type": "web_fetch_20260209", "name": "web_fetch"}`.
+  /// GA — no beta header. Web fetch only retrieves URLs already present in the
+  /// conversation (user messages, prior web_search results), so it pairs with
+  /// web_search in agentic loops. Older models use the basic variant type
+  /// "web_fetch_20250910", which requires the `web-fetch-2025-09-10` beta header
+  /// — the service adds that header automatically for that type only.
+  public static func webFetch(
+    type: String = "web_fetch_20260209",
+    name: String = "web_fetch",
+    maxUses: Int? = nil,
+    allowedDomains: [String]? = nil,
+    blockedDomains: [String]? = nil,
+    citations: AnthropicCitationsConfig? = nil,
+    maxContentTokens: Int? = nil,
+    cacheControl: AnthropicCacheControl? = nil
+  ) -> AnthropicServerTool {
+    AnthropicServerTool(
+      type: type,
+      name: name,
+      maxUses: maxUses,
+      allowedDomains: allowedDomains,
+      blockedDomains: blockedDomains,
+      citations: citations,
+      maxContentTokens: maxContentTokens,
+      cacheControl: cacheControl
+    )
   }
 
   enum CodingKeys: String, CodingKey {
     case type
     case name
     case maxUses = "max_uses"
+    case allowedDomains = "allowed_domains"
+    case blockedDomains = "blocked_domains"
+    case userLocation = "user_location"
+    case citations
+    case maxContentTokens = "max_content_tokens"
+    case cacheControl = "cache_control"
+  }
+}
+
+/// Approximate user location for the web_search server tool:
+/// `{"type": "approximate", "city", "region", "country", "timezone"}`.
+public struct AnthropicUserLocation: Encodable {
+  public let type: String
+  public let city: String?
+  public let region: String?
+  public let country: String?
+  public let timezone: String?
+
+  public init(
+    city: String? = nil,
+    region: String? = nil,
+    country: String? = nil,
+    timezone: String? = nil
+  ) {
+    self.type = "approximate"
+    self.city = city
+    self.region = region
+    self.country = country
+    self.timezone = timezone
   }
 }
 
@@ -713,7 +1099,13 @@ public struct AnthropicMessageResponse: Decodable {
   public let role: String
   public let content: [AnthropicResponseContentBlock]
   public let model: String
+
+  /// Raw stop reason passthrough — no filtering of unknown values. Notably
+  /// includes "pause_turn": the server-side tool loop (web_search/web_fetch)
+  /// paused; re-send the conversation with this assistant turn appended and the
+  /// server resumes where it left off.
   public let stopReason: String?
+
   public let stopSequence: String?
   public let usage: AnthropicUsage
 
@@ -735,6 +1127,9 @@ public struct AnthropicMessageResponse: Decodable {
 public enum AnthropicResponseContentBlock: Decodable {
   case text(AnthropicTextBlock)
   case toolUse(AnthropicToolUseResponseBlock)
+  case serverToolUse(AnthropicServerToolUseBlock)
+  case webSearchToolResult(AnthropicWebSearchToolResultBlock)
+  case webFetchToolResult(AnthropicWebFetchToolResultBlock)
 
   private enum CodingKeys: String, CodingKey {
     case type
@@ -749,6 +1144,12 @@ public enum AnthropicResponseContentBlock: Decodable {
       self = .text(try AnthropicTextBlock(from: decoder))
     case "tool_use":
       self = .toolUse(try AnthropicToolUseResponseBlock(from: decoder))
+    case "server_tool_use":
+      self = .serverToolUse(try AnthropicServerToolUseBlock(from: decoder))
+    case "web_search_tool_result":
+      self = .webSearchToolResult(try AnthropicWebSearchToolResultBlock(from: decoder))
+    case "web_fetch_tool_result":
+      self = .webFetchToolResult(try AnthropicWebFetchToolResultBlock(from: decoder))
     default:
       throw DecodingError.dataCorruptedError(
         forKey: .type, in: container,
@@ -774,12 +1175,25 @@ public struct AnthropicUsage: Decodable {
   public let outputTokens: Int
   public let cacheCreationInputTokens: Int?
   public let cacheReadInputTokens: Int?
+  public let serverToolUse: AnthropicServerToolUsage?
 
   enum CodingKeys: String, CodingKey {
     case inputTokens = "input_tokens"
     case outputTokens = "output_tokens"
     case cacheCreationInputTokens = "cache_creation_input_tokens"
     case cacheReadInputTokens = "cache_read_input_tokens"
+    case serverToolUse = "server_tool_use"
+  }
+}
+
+/// Per-request server tool invocation counts (billed per use, separate from tokens).
+public struct AnthropicServerToolUsage: Decodable {
+  public let webSearchRequests: Int?
+  public let webFetchRequests: Int?
+
+  enum CodingKeys: String, CodingKey {
+    case webSearchRequests = "web_search_requests"
+    case webFetchRequests = "web_fetch_requests"
   }
 }
 

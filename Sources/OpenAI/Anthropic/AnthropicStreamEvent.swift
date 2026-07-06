@@ -105,22 +105,100 @@ public struct AnthropicStreamUsage: Decodable {
   public let outputTokens: Int?
   public let cacheCreationInputTokens: Int?
   public let cacheReadInputTokens: Int?
+  public let serverToolUse: AnthropicServerToolUsage?
 
   enum CodingKeys: String, CodingKey {
     case inputTokens = "input_tokens"
     case outputTokens = "output_tokens"
     case cacheCreationInputTokens = "cache_creation_input_tokens"
     case cacheReadInputTokens = "cache_read_input_tokens"
+    case serverToolUse = "server_tool_use"
   }
 }
 
-/// Stream content block (initially empty)
+/// Stream content block (initially empty for text/tool_use; server tool result
+/// blocks arrive fully populated in `content_block_start`)
 public struct AnthropicStreamContentBlock: Decodable {
   public let type: String
   public let text: String?
   public let id: String?
   public let name: String?
   public let input: [String: AnthropicDynamicValue]?
+
+  /// For "web_search_tool_result" / "web_fetch_tool_result" blocks: the id of
+  /// the originating server_tool_use block.
+  public let toolUseId: String?
+
+  /// For "web_search_tool_result" / "web_fetch_tool_result" blocks: the full
+  /// result payload. Server tool results are not streamed via deltas — the
+  /// complete content arrives in `content_block_start`, so it is decoded here
+  /// for faithful reconstruction of the assistant message in agentic loops.
+  public let content: AnthropicStreamServerToolResultContent?
+
+  enum CodingKeys: String, CodingKey {
+    case type
+    case text
+    case id
+    case name
+    case input
+    case toolUseId = "tool_use_id"
+    case content
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    type = try container.decode(String.self, forKey: .type)
+    text = try container.decodeIfPresent(String.self, forKey: .text)
+    id = try container.decodeIfPresent(String.self, forKey: .id)
+    name = try container.decodeIfPresent(String.self, forKey: .name)
+    input = try container.decodeIfPresent([String: AnthropicDynamicValue].self, forKey: .input)
+    toolUseId = try container.decodeIfPresent(String.self, forKey: .toolUseId)
+    switch type {
+    case "web_search_tool_result", "web_fetch_tool_result":
+      content = try container.decodeIfPresent(AnthropicStreamServerToolResultContent.self, forKey: .content)
+    default:
+      // Other block types may carry a differently-shaped `content`; only the
+      // server tool result shapes are modeled here.
+      content = nil
+    }
+  }
+}
+
+/// Decoded `content` of a server tool result block in `content_block_start`.
+/// Mirrors the SSE JSON: an array is a web_search result list; objects branch
+/// on their `type` discriminator.
+public enum AnthropicStreamServerToolResultContent: Decodable {
+  case webSearch(AnthropicWebSearchToolResultContent)
+  case webFetch(AnthropicWebFetchToolResultContent)
+
+  private enum CodingKeys: String, CodingKey {
+    case type
+  }
+
+  public init(from decoder: Decoder) throws {
+    let singleValue = try decoder.singleValueContainer()
+    if let results = try? singleValue.decode([AnthropicWebSearchResult].self) {
+      self = .webSearch(.results(results))
+      return
+    }
+
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let type = try container.decode(String.self, forKey: .type)
+
+    switch type {
+    case "web_search_tool_result_error":
+      self = .webSearch(.error(try AnthropicWebSearchToolResultError(from: decoder)))
+    case "web_fetch_result":
+      self = .webFetch(.fetchResult(try AnthropicWebFetchResult(from: decoder)))
+    case "web_fetch_tool_result_error":
+      self = .webFetch(.error(try AnthropicWebFetchToolResultError(from: decoder)))
+    default:
+      throw DecodingError.dataCorruptedError(
+        forKey: .type, in: container,
+        debugDescription: "Unknown server tool result content type: \(type)"
+      )
+    }
+  }
 }
 
 /// Content block start event
@@ -209,7 +287,12 @@ public struct AnthropicMessageDeltaEvent: Decodable {
 
 /// Delta content for the message itself
 public struct AnthropicMessageDeltaContent: Decodable {
+  /// Raw stop reason passthrough — no filtering of unknown values. Notably
+  /// includes "pause_turn": the server-side tool loop (web_search/web_fetch)
+  /// paused; re-send the conversation with the assistant turn appended and the
+  /// server resumes where it left off.
   public let stopReason: String?
+
   public let stopSequence: String?
 
   enum CodingKeys: String, CodingKey {
@@ -268,6 +351,29 @@ extension AnthropicStreamEvent {
   public var toolUseInfo: (id: String, name: String)? {
     if case .contentBlockStart(let event) = self,
        event.contentBlock.type == "tool_use",
+       let id = event.contentBlock.id,
+       let name = event.contentBlock.name {
+      return (id: id, name: name)
+    }
+    return nil
+  }
+
+  /// Returns true if this is a server tool use start event (e.g. web_search,
+  /// web_fetch). Deliberately disjoint from `isToolUseStart` — server tools run
+  /// on Anthropic's side and must not be dispatched to a local tool executor.
+  /// Like regular tool_use, the input streams via input_json_delta.
+  public var isServerToolUseStart: Bool {
+    if case .contentBlockStart(let event) = self,
+       event.contentBlock.type == "server_tool_use" {
+      return true
+    }
+    return false
+  }
+
+  /// Get server tool use info from content block start
+  public var serverToolUseInfo: (id: String, name: String)? {
+    if case .contentBlockStart(let event) = self,
+       event.contentBlock.type == "server_tool_use",
        let id = event.contentBlock.id,
        let name = event.contentBlock.name {
       return (id: id, name: name)

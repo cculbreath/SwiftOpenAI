@@ -12,6 +12,9 @@ import Foundation
 enum AnthropicAPI {
   case messages
   case countTokens
+  case messageBatches
+  case messageBatch(id: String)
+  case messageBatchResults(id: String)
   case models(ModelCategory)
   case files(FileCategory)
 
@@ -56,6 +59,12 @@ extension AnthropicAPI {
       return "\(version)/messages"
     case .countTokens:
       return "\(version)/messages/count_tokens"
+    case .messageBatches:
+      return "\(version)/messages/batches"
+    case .messageBatch(let id):
+      return "\(version)/messages/batches/\(id)"
+    case .messageBatchResults(let id):
+      return "\(version)/messages/batches/\(id)/results"
     case .models(let category):
       switch category {
       case .list:

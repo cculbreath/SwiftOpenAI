@@ -32,6 +32,15 @@ public protocol AnthropicService {
   /// Count tokens for a prospective Messages API request
   func countTokens(parameters: AnthropicTokenCountParameter) async throws -> AnthropicTokenCountResponse
 
+  /// Create an asynchronous message batch (`POST /v1/messages/batches`)
+  func createMessageBatch(_ parameter: AnthropicMessageBatchParameter) async throws -> AnthropicMessageBatchResponse
+
+  /// Retrieve a message batch's status (`GET /v1/messages/batches/{id}`)
+  func retrieveMessageBatch(id: String) async throws -> AnthropicMessageBatchResponse
+
+  /// Fetch a completed batch's JSONL results (`GET /v1/messages/batches/{id}/results`)
+  func messageBatchResults(id: String) async throws -> [AnthropicMessageBatchResultLine]
+
   /// Upload a file to the Files API (`POST /v1/files`, multipart/form-data)
   func uploadFile(data: Data, filename: String, mimeType: String) async throws -> AnthropicFileMetadata
 
@@ -398,6 +407,66 @@ public class DefaultAnthropicService: AnthropicService {
     }
 
     return try await perform(request)
+  }
+
+  // MARK: - Message Batches
+
+  public func createMessageBatch(
+    _ parameter: AnthropicMessageBatchParameter
+  ) async throws -> AnthropicMessageBatchResponse {
+    let request = try AnthropicAPI.messageBatches.request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .post,
+      params: parameter
+    )
+
+    if debugEnabled {
+      debugLog("[Anthropic] Create batch: \(parameter.requests.count) request(s)")
+    }
+
+    return try await perform(request)
+  }
+
+  public func retrieveMessageBatch(id: String) async throws -> AnthropicMessageBatchResponse {
+    let request = try AnthropicAPI.messageBatch(id: id).request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .get
+    )
+
+    return try await perform(request)
+  }
+
+  public func messageBatchResults(id: String) async throws -> [AnthropicMessageBatchResultLine] {
+    let request = try AnthropicAPI.messageBatchResults(id: id).request(
+      apiKey: apiKey,
+      environment: environment,
+      method: .get
+    )
+
+    let httpRequest = try HTTPRequest(from: request)
+    let (data, response) = try await httpClient.data(for: httpRequest)
+
+    guard (200...299).contains(response.statusCode) else {
+      let errorBody = String(data: data, encoding: .utf8)
+      throw APIError.responseUnsuccessful(
+        description: "Request failed",
+        statusCode: response.statusCode,
+        responseBody: errorBody
+      )
+    }
+
+    // Results are JSONL — one JSON object per line. Decode each non-empty line;
+    // skip any line that fails to decode rather than failing the whole fetch.
+    let text = String(data: data, encoding: .utf8) ?? ""
+    return text
+      .split(whereSeparator: \.isNewline)
+      .compactMap { line -> AnthropicMessageBatchResultLine? in
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let lineData = trimmed.data(using: .utf8) else { return nil }
+        return try? decoder.decode(AnthropicMessageBatchResultLine.self, from: lineData)
+      }
   }
 
   // MARK: - Files

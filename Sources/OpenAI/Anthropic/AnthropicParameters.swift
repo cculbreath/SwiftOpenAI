@@ -887,6 +887,13 @@ public struct AnthropicServerTool: Encodable {
   /// Token cap on fetched page content (web_fetch only).
   public let maxContentTokens: Int?
 
+  /// Which callers may invoke the tool. On models that support programmatic
+  /// tool calling the API DEFAULTS to allowing calls from inside the
+  /// `code_execution` sandbox, which surfaces unrequested `code_execution` /
+  /// `thinking` blocks and applies different URL-allowance semantics to
+  /// web_fetch. Pass ["direct"] to force plain direct invocation.
+  public let allowedCallers: [String]?
+
   public let cacheControl: AnthropicCacheControl?
 
   public init(
@@ -898,6 +905,7 @@ public struct AnthropicServerTool: Encodable {
     userLocation: AnthropicUserLocation? = nil,
     citations: AnthropicCitationsConfig? = nil,
     maxContentTokens: Int? = nil,
+    allowedCallers: [String]? = nil,
     cacheControl: AnthropicCacheControl? = nil
   ) {
     self.type = type
@@ -908,6 +916,7 @@ public struct AnthropicServerTool: Encodable {
     self.userLocation = userLocation
     self.citations = citations
     self.maxContentTokens = maxContentTokens
+    self.allowedCallers = allowedCallers
     self.cacheControl = cacheControl
   }
 
@@ -921,6 +930,7 @@ public struct AnthropicServerTool: Encodable {
     allowedDomains: [String]? = nil,
     blockedDomains: [String]? = nil,
     userLocation: AnthropicUserLocation? = nil,
+    allowedCallers: [String]? = nil,
     cacheControl: AnthropicCacheControl? = nil
   ) -> AnthropicServerTool {
     AnthropicServerTool(
@@ -930,6 +940,7 @@ public struct AnthropicServerTool: Encodable {
       allowedDomains: allowedDomains,
       blockedDomains: blockedDomains,
       userLocation: userLocation,
+      allowedCallers: allowedCallers,
       cacheControl: cacheControl
     )
   }
@@ -948,6 +959,7 @@ public struct AnthropicServerTool: Encodable {
     blockedDomains: [String]? = nil,
     citations: AnthropicCitationsConfig? = nil,
     maxContentTokens: Int? = nil,
+    allowedCallers: [String]? = nil,
     cacheControl: AnthropicCacheControl? = nil
   ) -> AnthropicServerTool {
     AnthropicServerTool(
@@ -958,6 +970,7 @@ public struct AnthropicServerTool: Encodable {
       blockedDomains: blockedDomains,
       citations: citations,
       maxContentTokens: maxContentTokens,
+      allowedCallers: allowedCallers,
       cacheControl: cacheControl
     )
   }
@@ -971,6 +984,7 @@ public struct AnthropicServerTool: Encodable {
     case userLocation = "user_location"
     case citations
     case maxContentTokens = "max_content_tokens"
+    case allowedCallers = "allowed_callers"
     case cacheControl = "cache_control"
   }
 }

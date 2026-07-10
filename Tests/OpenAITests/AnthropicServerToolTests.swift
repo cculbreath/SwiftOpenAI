@@ -70,6 +70,20 @@ final class AnthropicServerToolTests: XCTestCase {
         XCTAssertEqual(try soloToolJSON(tool), expected)
     }
 
+    func testAllowedCallersEncodesOnBothWebTools() throws {
+        // allowed_callers: ["direct"] opts a tool OUT of programmatic tool
+        // calling (the code_execution sandbox path some models default to) —
+        // the caller sets it when it needs plain direct invocation semantics.
+        XCTAssertEqual(
+            try soloToolJSON(.serverTool(.webFetch(maxUses: 2, allowedCallers: ["direct"]))),
+            #"{"allowed_callers":["direct"],"max_uses":2,"name":"web_fetch","type":"web_fetch_20260209"}"#
+        )
+        XCTAssertEqual(
+            try soloToolJSON(.serverTool(.webSearch(allowedCallers: ["direct"]))),
+            #"{"allowed_callers":["direct"],"name":"web_search","type":"web_search_20260209"}"#
+        )
+    }
+
     func testDefaultFactoriesEmitOnlyTypeAndName() throws {
         XCTAssertEqual(try soloToolJSON(.serverTool(.webSearch())),
                        #"{"name":"web_search","type":"web_search_20260209"}"#)

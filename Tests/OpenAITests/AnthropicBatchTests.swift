@@ -69,4 +69,43 @@ final class AnthropicBatchTests: XCTestCase {
         XCTAssertEqual(line.result.message?.content.count, 1)
         XCTAssertEqual(line.result.message?.usage.outputTokens, 3)
     }
+
+    /// An errored result line carries the API's nested error envelope — decode
+    /// it (real wire shape captured from a live failed batch) so callers can
+    /// log WHY a request errored instead of a blind "no usable result".
+    func testBatchResultLineDecodesErroredDetail() throws {
+        let json = """
+        { "custom_id": "dossier", "result": { "type": "errored", "error": { "type": "error", "error": { "details": { "error_visibility": "user_facing" }, "type": "invalid_request_error", "message": "`stream=True` is not supported in the Message Batches API" }, "request_id": null } } }
+        """.data(using: .utf8)!
+        let line = try JSONDecoder().decode(AnthropicMessageBatchResultLine.self, from: json)
+
+        XCTAssertEqual(line.result.type, "errored")
+        XCTAssertNil(line.result.message)
+        XCTAssertEqual(line.result.error?.error?.type, "invalid_request_error")
+        XCTAssertEqual(line.result.error?.describe,
+                       "invalid_request_error: `stream=True` is not supported in the Message Batches API")
+    }
+
+    // MARK: - Stream normalization
+
+    /// The Batch API rejects `stream=true` outright, and
+    /// `AnthropicMessageParameter.init` DEFAULTS stream to true — so the batch
+    /// Request initializer must force it false or a caller who forgets the
+    /// override has every batched request errored (this shipped: the dossier
+    /// synthesis batch failed on exactly this for its entire first day).
+    func testBatchRequestForcesStreamFalse() throws {
+        let defaultParams = AnthropicMessageParameter(model: "m", messages: [.user("x")], maxTokens: 1)
+        XCTAssertTrue(defaultParams.stream, "precondition: the standalone default is stream=true")
+
+        let batch = AnthropicMessageBatchParameter(requests: [
+            .init(customId: "c", params: defaultParams),
+            .init(customId: "d", params: AnthropicMessageParameter(
+                model: "m", messages: [.user("y")], maxTokens: 1, stream: true)),
+        ])
+        XCTAssertFalse(batch.requests[0].params.stream)
+        XCTAssertFalse(batch.requests[1].params.stream, "even an explicit stream=true is normalized")
+
+        let json = String(decoding: try AnthropicRequestBody.encode(batch), as: UTF8.self)
+        XCTAssertFalse(json.contains("\"stream\":true"), "no batched request may carry stream=true")
+    }
 }

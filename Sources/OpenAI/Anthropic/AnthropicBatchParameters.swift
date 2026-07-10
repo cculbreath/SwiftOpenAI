@@ -21,15 +21,22 @@ import Foundation
 public struct AnthropicMessageBatchParameter: Encodable {
   /// One entry in the batch: a caller-chosen id + the exact Messages API params
   /// that entry should run with (identical shape to a standalone `/v1/messages`
-  /// request body).
+  /// request body — except `stream`, which this initializer normalizes).
   public struct Request: Encodable {
     /// Caller-unique id echoed back on the corresponding result line.
     public let customId: String
     public let params: AnthropicMessageParameter
 
+    /// Normalizes `params.stream` to `false`: the Batch API rejects streaming
+    /// requests ("`stream=True` is not supported in the Message Batches API"),
+    /// and `AnthropicMessageParameter.init` defaults `stream` to `true` — a
+    /// caller who forgets to override it would have every batched request
+    /// errored. Streaming is meaningless inside a batch, so force it here.
     public init(customId: String, params: AnthropicMessageParameter) {
       self.customId = customId
-      self.params = params
+      var normalized = params
+      normalized.stream = false
+      self.params = normalized
     }
   }
 
@@ -80,10 +87,33 @@ public struct AnthropicMessageBatchResultLine: Decodable {
 
   /// The outcome for a single batched request. `type` is `"succeeded"`,
   /// `"errored"`, `"canceled"`, or `"expired"`; `message` is present only for
-  /// a `"succeeded"` result.
+  /// a `"succeeded"` result, `error` only for an `"errored"` one.
   public struct Result: Decodable {
     public let type: String
     public let message: AnthropicMessageResponse?
+    public let error: BatchResultError?
+  }
+
+  /// The error envelope on an `"errored"` result line — the standard API error
+  /// shape nested under the result (`{"type":"error","error":{"type":…,
+  /// "message":…}}`). Every field optional so an unexpected shape degrades to
+  /// nils instead of failing the line decode; `describe` flattens whichever
+  /// fields arrived for diagnostics.
+  public struct BatchResultError: Decodable {
+    public let type: String?
+    public let error: Detail?
+
+    public struct Detail: Decodable {
+      public let type: String?
+      public let message: String?
+    }
+
+    /// Best-effort one-line description for logs.
+    public var describe: String {
+      let kind = error?.type ?? type ?? "unknown"
+      let message = error?.message ?? "no message"
+      return "\(kind): \(message)"
+    }
   }
 
   enum CodingKeys: String, CodingKey {

@@ -23,8 +23,10 @@ public struct AnthropicMessageParameter: Encodable {
   /// Maximum tokens to generate
   public let maxTokens: Int
 
-  /// Whether to stream the response
-  public let stream: Bool
+  /// Whether to stream the response. `var` (not `let`) so the Batch API's
+  /// request normalizer can force it false — `stream=true` is rejected by
+  /// `/v1/messages/batches` ("`stream=True` is not supported").
+  public var stream: Bool
 
   /// Tools available for the model to use
   public let tools: [AnthropicTool]?

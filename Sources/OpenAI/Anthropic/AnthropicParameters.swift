@@ -273,6 +273,10 @@ public enum AnthropicContentBlock: Codable {
   case serverToolUse(AnthropicServerToolUseBlock)
   case webSearchToolResult(AnthropicWebSearchToolResultBlock)
   case webFetchToolResult(AnthropicWebFetchToolResultBlock)
+  /// An unmodeled block carried raw — the request-side twin of
+  /// `AnthropicResponseContentBlock.unknown`, so an assistant echo can
+  /// round-trip a block this client doesn't understand verbatim.
+  case unknown(AnthropicUnknownBlock)
 
   private enum CodingKeys: String, CodingKey {
     case type
@@ -295,6 +299,8 @@ public enum AnthropicContentBlock: Codable {
     case .webSearchToolResult(let block):
       try block.encode(to: encoder)
     case .webFetchToolResult(let block):
+      try block.encode(to: encoder)
+    case .unknown(let block):
       try block.encode(to: encoder)
     }
   }
@@ -321,15 +327,35 @@ public enum AnthropicContentBlock: Codable {
     case "web_fetch_tool_result":
       self = .webFetchToolResult(try AnthropicWebFetchToolResultBlock(from: decoder))
     default:
-      throw DecodingError.dataCorruptedError(
-        forKey: .type, in: container,
-        debugDescription: "Unknown content block type: \(type)"
-      )
+      self = .unknown(try AnthropicUnknownBlock(from: decoder))
     }
   }
 }
 
 // MARK: - Content Block Types
+
+/// A content block whose `type` this client doesn't model. The API grows new
+/// block types over time (`code_execution_tool_result` appeared in responses
+/// that declared only web_fetch), and an unmodeled type must not fail the
+/// whole response decode. Decoding captures the complete raw JSON object;
+/// encoding re-emits it, so an assistant echo round-trips the block verbatim
+/// (deterministically under `.sortedKeys`) without this client understanding it.
+public struct AnthropicUnknownBlock: Codable {
+  /// The wire `type` string, for logging/telemetry.
+  public let type: String
+  /// The complete raw block JSON (including `type`).
+  public let raw: AnthropicDynamicValue
+
+  public init(from decoder: Decoder) throws {
+    let raw = try AnthropicDynamicValue(from: decoder)
+    self.raw = raw
+    self.type = ((raw.value as? [String: Any])?["type"] as? String) ?? "unknown"
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    try raw.encode(to: encoder)
+  }
+}
 
 public struct AnthropicTextBlock: Codable {
   public let type: String
@@ -1130,6 +1156,11 @@ public enum AnthropicResponseContentBlock: Decodable {
   case serverToolUse(AnthropicServerToolUseBlock)
   case webSearchToolResult(AnthropicWebSearchToolResultBlock)
   case webFetchToolResult(AnthropicWebFetchToolResultBlock)
+  /// Any block type this client doesn't model, carried raw. A new API block
+  /// type must degrade to an opaque, echo-able block — not fail the whole
+  /// response decode (which killed entire agent runs when
+  /// `code_execution_tool_result` first appeared).
+  case unknown(AnthropicUnknownBlock)
 
   private enum CodingKeys: String, CodingKey {
     case type
@@ -1151,10 +1182,7 @@ public enum AnthropicResponseContentBlock: Decodable {
     case "web_fetch_tool_result":
       self = .webFetchToolResult(try AnthropicWebFetchToolResultBlock(from: decoder))
     default:
-      throw DecodingError.dataCorruptedError(
-        forKey: .type, in: container,
-        debugDescription: "Unknown response content block type: \(type)"
-      )
+      self = .unknown(try AnthropicUnknownBlock(from: decoder))
     }
   }
 }

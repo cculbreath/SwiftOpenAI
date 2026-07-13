@@ -114,19 +114,28 @@ public struct AnthropicMessageParameter: Encodable {
 /// Modeled as an enum so additional variants can be added later.
 public enum AnthropicThinking: Encodable {
   /// Adaptive thinking: the model decides when and how much to think.
-  /// Encodes as `{"type": "adaptive"}`.
+  /// Encodes as `{"type": "adaptive"}`. `display` defaults to `"omitted"` server-side,
+  /// so the streamed `thinking_delta` events carry empty text.
   case adaptive
+  /// Adaptive thinking with summarized reasoning surfaced. Encodes as
+  /// `{"type": "adaptive", "display": "summarized"}` so streamed `thinking_delta`
+  /// events carry human-readable summary text (for live reasoning UIs).
+  case adaptiveSummarized
 
   public func encode(to encoder: Encoder) throws {
     var container = encoder.container(keyedBy: CodingKeys.self)
     switch self {
     case .adaptive:
       try container.encode("adaptive", forKey: .type)
+    case .adaptiveSummarized:
+      try container.encode("adaptive", forKey: .type)
+      try container.encode("summarized", forKey: .display)
     }
   }
 
   private enum CodingKeys: String, CodingKey {
     case type
+    case display
   }
 }
 

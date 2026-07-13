@@ -231,12 +231,19 @@ public struct AnthropicContentBlockDeltaEvent: Decodable {
 public enum AnthropicContentDelta: Decodable {
   case textDelta(text: String)
   case inputJsonDelta(partialJson: String)
+  /// Incremental extended-thinking text (summary when `thinking.display == "summarized"`).
+  case thinkingDelta(thinking: String)
+  /// The cryptographic signature emitted at the end of a thinking block. Opaque; only
+  /// needed when replaying thinking blocks back to the API on the same model.
+  case signatureDelta(signature: String)
   case unknown(type: String)
 
   private enum CodingKeys: String, CodingKey {
     case type
     case text
     case partialJson = "partial_json"
+    case thinking
+    case signature
   }
 
   public init(from decoder: Decoder) throws {
@@ -250,6 +257,12 @@ public enum AnthropicContentDelta: Decodable {
     case "input_json_delta":
       let partialJson = try container.decode(String.self, forKey: .partialJson)
       self = .inputJsonDelta(partialJson: partialJson)
+    case "thinking_delta":
+      let thinking = try container.decode(String.self, forKey: .thinking)
+      self = .thinkingDelta(thinking: thinking)
+    case "signature_delta":
+      let signature = try container.decode(String.self, forKey: .signature)
+      self = .signatureDelta(signature: signature)
     default:
       self = .unknown(type: type)
     }
@@ -267,6 +280,14 @@ public enum AnthropicContentDelta: Decodable {
   public var partialJson: String? {
     if case .inputJsonDelta(let json) = self {
       return json
+    }
+    return nil
+  }
+
+  /// Get the thinking delta text if this is a thinking_delta
+  public var thinking: String? {
+    if case .thinkingDelta(let thinking) = self {
+      return thinking
     }
     return nil
   }
